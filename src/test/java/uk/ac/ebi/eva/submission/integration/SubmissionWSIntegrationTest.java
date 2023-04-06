@@ -2,14 +2,13 @@ package uk.ac.ebi.eva.submission.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.TestPropertySourceUtils;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -18,6 +17,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import uk.ac.ebi.eva.submission.model.Submission;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -29,26 +31,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-@ContextConfiguration(initializers = SubmissionWSIntegrationTest.DockerPostgreDataSourceInitializer.class)
 public class SubmissionWSIntegrationTest {
     @Autowired
     private MockMvc mvc;
     @Autowired
     private SubmissionRepository submissionRepository;
 
-    @Container
-    public static PostgreSQLContainer<?> postgreDBContainer = new PostgreSQLContainer<>("postgres:9.6");
+    @Value("${eva.submission.dropbox}")
+    private String submissionDropbox;
 
-    public static class DockerPostgreDataSourceInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-        @Override
-        public void initialize(ConfigurableApplicationContext applicationContext) {
-            TestPropertySourceUtils.addInlinedPropertiesToEnvironment(
-                    applicationContext,
-                    "spring.datasource.url=" + postgreDBContainer.getJdbcUrl(),
-                    "spring.datasource.username=" + postgreDBContainer.getUsername(),
-                    "spring.datasource.password=" + postgreDBContainer.getPassword()
-            );
-        }
+    @Container
+    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6");
+
+    @DynamicPropertySource
+    static void dataSourceProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
+        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
     }
 
     @Test
@@ -70,6 +70,8 @@ public class SubmissionWSIntegrationTest {
         assertThat(submission.getInitiationTime()).isNotNull();
         assertThat(submission.getUploadedTime()).isNull();
         assertThat(submission.getCompletionTime()).isNull();
+        assertThat(Files.exists(Paths.get(submissionDropbox + "/" + submissionId))).isTrue();
+        assertThat(Files.isDirectory(Paths.get(submissionDropbox + "/" + submissionId))).isTrue();
 
         // Test get submission status
         mvc.perform(get("/v1/submission/" + submissionId + "/status")
@@ -114,6 +116,8 @@ public class SubmissionWSIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
+        // Cleanup - delete directory
+        //new File(submissionDropbox + "/" + submissionId).deleteOnExit();
     }
 
 }
