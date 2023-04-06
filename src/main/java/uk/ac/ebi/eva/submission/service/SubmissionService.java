@@ -21,7 +21,7 @@ public class SubmissionService {
         String submissionId = UUID.randomUUID().toString();
 
         Submission submission = new Submission(submissionId);
-        submission.setStatus(SubmissionStatus.OPEN);
+        submission.setStatus(SubmissionStatus.OPEN.toString());
         submission.setInitiationTime(LocalDateTime.now());
 
         return submissionRepository.save(submission);
@@ -29,20 +29,20 @@ public class SubmissionService {
 
     public Submission markSubmissionUploaded(String submissionId) {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
-        submission.setStatus(SubmissionStatus.UPLOADED);
+        submission.setStatus(SubmissionStatus.UPLOADED.toString());
         submission.setUploadedTime(LocalDateTime.now());
 
         return submissionRepository.save(submission);
     }
 
-    public SubmissionStatus getSubmissionStatus(String submissionId) {
+    public String getSubmissionStatus(String submissionId) {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
         return submission.getStatus();
     }
 
     public Submission markSubmissionStatus(String submissionId, SubmissionStatus status) {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
-        submission.setStatus(status);
+        submission.setStatus(status.toString());
         if (status == SubmissionStatus.COMPLETED) {
             submission.setCompletionTime(LocalDateTime.now());
         }

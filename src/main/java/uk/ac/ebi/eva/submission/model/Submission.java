@@ -28,7 +28,7 @@ public class Submission {
 
     @NonNull
     @Column(nullable = false)
-    private SubmissionStatus status;
+    private String status;
 
     @Column(nullable = false)
     private LocalDateTime initiationTime;
@@ -45,11 +45,11 @@ public class Submission {
     }
 
     @NonNull
-    public SubmissionStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(@NonNull SubmissionStatus status) {
+    public void setStatus(@NonNull String status) {
         this.status = status;
     }
 
