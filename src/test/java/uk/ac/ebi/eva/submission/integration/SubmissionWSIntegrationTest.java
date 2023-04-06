@@ -15,12 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import uk.ac.ebi.eva.submission.model.Submission;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -50,31 +53,67 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
-    public void testCreateDirectory() throws Exception {
+    public void testSubmissionApis() throws Exception {
         HttpHeaders httpHeaders = new HttpHeaders();
 
-        String response = mvc.perform(post("/v1/ftp")
+        // Test submission initiation
+        String submissionId = mvc.perform(post("/v1/submission/initiate")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        SubmissionStatus submissionStatus = submissionRepository.findBySubmissionId(response);
-        assertThat(submissionStatus).isNotNull();
-        assertThat(submissionStatus.getSubmissionId()).isEqualTo(response);
-        assertThat(submissionStatus.isCompleted()).isEqualTo(false);
-        assertThat(submissionStatus).isNotNull();
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.OPEN);
+        assertThat(submission.getInitiationTime()).isNotNull();
+        assertThat(submission.getUploadedTime()).isNull();
+        assertThat(submission.getCompletionTime()).isNull();
 
-        mvc.perform(put("/v1/completed")
+        // Test get submission status
+        mvc.perform(get("/v1/submission/" + submissionId + "/status")
                         .headers(httpHeaders)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(response))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpectAll(status().isOk(), content().string(SubmissionStatus.OPEN.toString()));
+
+        // Test mark submission uploaded
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-        SubmissionStatus submissionStatus1 = submissionRepository.findBySubmissionId(response);
-        assertThat(submissionStatus1).isNotNull();
-        assertThat(submissionStatus1.getSubmissionId()).isEqualTo(response);
-        assertThat(submissionStatus.isCompleted()).isEqualTo(true);
+        submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED);
+        assertThat(submission.getUploadedTime()).isNotNull();
+        assertThat(submission.getCompletionTime()).isNull();
+
+        // Test get submission status
+        mvc.perform(get("/v1/submission/" + submissionId + "/status")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpectAll(status().isOk(), content().string(SubmissionStatus.UPLOADED.toString()));
+
+        // Test mark submission status
+        mvc.perform(put("/v1/submission/" + submissionId + "/status/COMPLETED")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.COMPLETED);
+        assertThat(submission.getCompletionTime()).isNotNull();
+
+        // Test mark submission status with a wrong status
+        mvc.perform(put("/v1/submission/" + submissionId + "/status/complete")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
     }
 
 }
