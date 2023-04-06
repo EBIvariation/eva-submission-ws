@@ -66,7 +66,7 @@ public class SubmissionWSIntegrationTest {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
         assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
-        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.OPEN);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.OPEN.toString());
         assertThat(submission.getInitiationTime()).isNotNull();
         assertThat(submission.getUploadedTime()).isNull();
         assertThat(submission.getCompletionTime()).isNull();
@@ -86,7 +86,7 @@ public class SubmissionWSIntegrationTest {
         submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
         assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
-        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
         assertThat(submission.getUploadedTime()).isNotNull();
         assertThat(submission.getCompletionTime()).isNull();
 
@@ -105,7 +105,7 @@ public class SubmissionWSIntegrationTest {
         submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
         assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
-        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.COMPLETED);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.COMPLETED.toString());
         assertThat(submission.getCompletionTime()).isNotNull();
 
         // Test mark submission status with a wrong status
