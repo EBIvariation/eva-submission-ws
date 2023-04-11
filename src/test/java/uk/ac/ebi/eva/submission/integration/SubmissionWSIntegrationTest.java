@@ -18,8 +18,11 @@ import uk.ac.ebi.eva.submission.model.Submission;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -34,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class SubmissionWSIntegrationTest {
     @Autowired
     private MockMvc mvc;
+
     @Autowired
     private SubmissionRepository submissionRepository;
 
@@ -53,10 +57,9 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
-    public void testSubmissionApis() throws Exception {
+    public void testSubmissionInitiate() throws Exception {
         HttpHeaders httpHeaders = new HttpHeaders();
 
-        // Test submission initiation
         String submissionId = mvc.perform(post("/v1/submission/initiate")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -73,51 +76,80 @@ public class SubmissionWSIntegrationTest {
         assertThat(Files.exists(Paths.get(submissionDropbox + "/" + submissionId))).isTrue();
         assertThat(Files.isDirectory(Paths.get(submissionDropbox + "/" + submissionId))).isTrue();
 
-        // Test get submission status
+        // Cleanup - delete directory
+        new File(submissionDropbox + "/" + submissionId).deleteOnExit();
+    }
+
+    @Test
+    @Transactional
+    public void testSubmissionGetStatus() throws Exception {
+        String submissionId = createNewSubmissionEntry();
+
+        HttpHeaders httpHeaders = new HttpHeaders();
         mvc.perform(get("/v1/submission/" + submissionId + "/status")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpectAll(status().isOk(), content().string(SubmissionStatus.OPEN.toString()));
+    }
 
-        // Test mark submission uploaded
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploaded() throws Exception {
+        String submissionId = createNewSubmissionEntry();
+
+        HttpHeaders httpHeaders = new HttpHeaders();
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-        submission = submissionRepository.findBySubmissionId(submissionId);
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
         assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
         assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
         assertThat(submission.getUploadedTime()).isNotNull();
         assertThat(submission.getCompletionTime()).isNull();
+    }
 
-        // Test get submission status
-        mvc.perform(get("/v1/submission/" + submissionId + "/status")
-                        .headers(httpHeaders)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpectAll(status().isOk(), content().string(SubmissionStatus.UPLOADED.toString()));
+    @Test
+    @Transactional
+    public void testMarkSubmissionStatusCorrect() throws Exception {
+        String submissionId = createNewSubmissionEntry();
 
-        // Test mark submission status
+        HttpHeaders httpHeaders = new HttpHeaders();
         mvc.perform(put("/v1/submission/" + submissionId + "/status/COMPLETED")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-        submission = submissionRepository.findBySubmissionId(submissionId);
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
         assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
         assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.COMPLETED.toString());
         assertThat(submission.getCompletionTime()).isNotNull();
+    }
 
-        // Test mark submission status with a wrong status
+    @Test
+    @Transactional
+    public void testMarkSubmissionStatusWrong() throws Exception {
+        String submissionId = createNewSubmissionEntry();
+
+        HttpHeaders httpHeaders = new HttpHeaders();
         mvc.perform(put("/v1/submission/" + submissionId + "/status/complete")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
+    }
 
-        // Cleanup - delete directory
-        //new File(submissionDropbox + "/" + submissionId).deleteOnExit();
+    private String createNewSubmissionEntry() {
+        String submissionId = UUID.randomUUID().toString();
+        Submission submission = new Submission(submissionId);
+        submission.setStatus(SubmissionStatus.OPEN.toString());
+        submission.setInitiationTime(LocalDateTime.now());
+        submissionRepository.save(submission);
+
+        return submissionId;
+
     }
 
 }
