@@ -39,6 +39,8 @@ public class Submission {
     @Column
     private LocalDateTime completionTime;
 
+    @Column
+    private String uploadUrl;
 
     public String getSubmissionId() {
         return submissionId;
@@ -75,6 +77,14 @@ public class Submission {
 
     public void setCompletionTime(LocalDateTime completionTime) {
         this.completionTime = completionTime;
+    }
+
+    public String getUploadUrl() {
+        return uploadUrl;
+    }
+
+    public void setUploadUrl(String uploadUrl) {
+        this.uploadUrl = uploadUrl;
     }
 
     @Override

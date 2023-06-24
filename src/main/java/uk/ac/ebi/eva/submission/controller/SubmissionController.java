@@ -9,20 +9,30 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.model.Submission;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
+import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
 @RestController
 @RequestMapping("/v1")
 public class SubmissionController {
-    private SubmissionService submissionService;
+    private final SubmissionService submissionService;
+    private final WebinTokenService webinTokenService;
 
-    public SubmissionController(SubmissionService submissionService) {
+    public SubmissionController(SubmissionService submissionService, WebinTokenService webinTokenService) {
         this.submissionService = submissionService;
+        this.webinTokenService = webinTokenService;
     }
 
-    @PostMapping("submission/initiate")
-    public String initiateSubmission() {
-        Submission submission = submissionService.initiateSubmission();
-        return submission.getSubmissionId();
+    @PostMapping("submission/initiate/webin/{userToken}")
+    public Submission initiateSubmissionWebin(@PathVariable("userToken") String userToken) {
+        String userId = this.webinTokenService.getWebinUserIdFromToken(userToken);
+        Submission submission = submissionService.initiateSubmission(userId);
+        return submission;
+    }
+
+    @PostMapping("submission/initiate/lsri/{userToken}/")
+    public String initiateSubmissionLSRI() {
+        // TODO
+        return "NotImplemented";
     }
 
     @PutMapping("submission/{submissionId}/uploaded")

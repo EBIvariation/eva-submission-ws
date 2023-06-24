@@ -1,8 +1,10 @@
 package uk.ac.ebi.eva.submission.integration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.mock.mockito.MockBean;
+
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
@@ -17,14 +19,17 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import uk.ac.ebi.eva.submission.model.Submission;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
+import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
+import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -41,8 +46,14 @@ public class SubmissionWSIntegrationTest {
     @Autowired
     private SubmissionRepository submissionRepository;
 
-    @Value("${eva.submission.dropbox}")
-    private String submissionDropbox;
+    @MockBean
+    private WebinTokenService webinTokenService;
+
+    @MockBean
+    private GlobusTokenRefreshService globusTokenRefreshService;
+
+    @MockBean
+    private GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
     @Container
     static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6");
@@ -58,13 +69,19 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionInitiate() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
+        String userId = "webinUserId";
+        String userToken = "webinUserToken";
+        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+        doNothing().when(globusTokenRefreshService).refreshToken();
+        doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
 
-        String submissionId = mvc.perform(post("/v1/submission/initiate")
-                        .headers(httpHeaders)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+        HttpHeaders httpHeaders = new HttpHeaders();
+        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate/webin/" + userToken)
+                                                                              .headers(httpHeaders)
+                                                                              .contentType(MediaType.APPLICATION_JSON))
+                                                             .andExpect(status().isOk())
+                                                             .andReturn().getResponse().getContentAsString())
+                                                .get("submissionId").asText();
 
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
@@ -73,11 +90,6 @@ public class SubmissionWSIntegrationTest {
         assertThat(submission.getInitiationTime()).isNotNull();
         assertThat(submission.getUploadedTime()).isNull();
         assertThat(submission.getCompletionTime()).isNull();
-        assertThat(Files.exists(Paths.get(submissionDropbox + "/" + submissionId))).isTrue();
-        assertThat(Files.isDirectory(Paths.get(submissionDropbox + "/" + submissionId))).isTrue();
-
-        // Cleanup - delete directory
-        new File(submissionDropbox + "/" + submissionId).deleteOnExit();
     }
 
     @Test
@@ -151,5 +163,4 @@ public class SubmissionWSIntegrationTest {
         return submissionId;
 
     }
-
 }
