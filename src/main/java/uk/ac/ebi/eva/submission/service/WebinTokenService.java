@@ -27,7 +27,7 @@ public class WebinTokenService {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode responseJson = objectMapper.readTree(response.getBody());
-            return(responseJson.get("id").asText());
+            return responseJson.get("id").asText();
         } catch (Exception e) {
             // Handle errors while parsing the response JSON
             e.printStackTrace();
