@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.model.Submission;
@@ -22,14 +23,15 @@ public class SubmissionController {
         this.webinTokenService = webinTokenService;
     }
 
-    @PostMapping("submission/initiate/webin/{userToken}")
-    public Submission initiateSubmissionWebin(@PathVariable("userToken") String userToken) {
+    @PostMapping("submission/initiate/webin")
+    public Submission initiateSubmissionWebin(@RequestHeader("Authorization") String bearerToken) {
+        String userToken = bearerToken.replace("Bearer ", "");;
         String userId = this.webinTokenService.getWebinUserIdFromToken(userToken);
         Submission submission = submissionService.initiateSubmission(userId);
         return submission;
     }
 
-    @PostMapping("submission/initiate/lsri/{userToken}/")
+    @PostMapping("submission/initiate/lsri")
     public String initiateSubmissionLSRI() {
         // TODO
         return "NotImplemented";
