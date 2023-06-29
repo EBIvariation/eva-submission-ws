@@ -30,6 +30,7 @@ public class SubmissionService {
         globusDirectoryProvisioner.createSubmissionDirectory(directoryToCreate);
 
         Submission submission = new Submission(submissionId);
+        submission.setUserId(userId);
         submission.setStatus(SubmissionStatus.OPEN.toString());
         submission.setInitiationTime(LocalDateTime.now());
         submission.setUploadUrl(uploadHttpDomain + "/" + directoryToCreate);

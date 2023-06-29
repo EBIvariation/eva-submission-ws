@@ -30,6 +30,10 @@ public class Submission {
     @Column(nullable = false)
     private String status;
 
+    @NonNull
+    @Column(nullable = false, name = "user_id")
+    private String userId;
+
     @Column(nullable = false)
     private LocalDateTime initiationTime;
 
@@ -53,6 +57,15 @@ public class Submission {
 
     public void setStatus(@NonNull String status) {
         this.status = status;
+    }
+
+    @NonNull
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(@NonNull String userId) {
+        this.userId = userId;
     }
 
     public LocalDateTime getInitiationTime() {
