@@ -76,7 +76,8 @@ public class SubmissionWSIntegrationTest {
         doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
 
         HttpHeaders httpHeaders = new HttpHeaders();
-        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate/webin/" + userToken)
+        httpHeaders.setBearerAuth(userToken);
+        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate/webin")
                                                                               .headers(httpHeaders)
                                                                               .contentType(MediaType.APPLICATION_JSON))
                                                              .andExpect(status().isOk())
