@@ -87,6 +87,7 @@ public class SubmissionWSIntegrationTest {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
         assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getUserId()).isEqualTo(userId);
         assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.OPEN.toString());
         assertThat(submission.getInitiationTime()).isNotNull();
         assertThat(submission.getUploadedTime()).isNull();
