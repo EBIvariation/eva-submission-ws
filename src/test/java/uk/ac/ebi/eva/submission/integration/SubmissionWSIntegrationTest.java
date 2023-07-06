@@ -21,12 +21,14 @@ import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
+import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
@@ -50,6 +52,9 @@ public class SubmissionWSIntegrationTest {
     private WebinTokenService webinTokenService;
 
     @MockBean
+    private LsriTokenService lsriTokenService;
+
+    @MockBean
     private GlobusTokenRefreshService globusTokenRefreshService;
 
     @MockBean
@@ -68,7 +73,7 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
-    public void testSubmissionInitiate() throws Exception {
+    public void testSubmissionInitiateWebin() throws Exception {
         String userId = "webinUserId";
         String userToken = "webinUserToken";
         when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
@@ -79,6 +84,36 @@ public class SubmissionWSIntegrationTest {
         httpHeaders.setBearerAuth(userToken);
         String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate/webin")
                                                                               .headers(httpHeaders)
+                                                                              .contentType(MediaType.APPLICATION_JSON))
+                                                             .andExpect(status().isOk())
+                                                             .andReturn().getResponse().getContentAsString())
+                                                .get("submissionId").asText();
+
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getUserId()).isEqualTo(userId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.OPEN.toString());
+        assertThat(submission.getInitiationTime()).isNotNull();
+        assertThat(submission.getUploadedTime()).isNull();
+        assertThat(submission.getCompletionTime()).isNull();
+    }
+
+    @Test
+    @Transactional
+    public void testSubmissionInitiateLsri() throws Exception {
+        String userId = "lsriuser@lsri.com";
+        String deviceCode = "deviceCode";
+        String expiresIn = "600";
+        when(lsriTokenService.getLsriUserIdFromToken(anyString(), anyInt())).thenReturn(userId);
+        doNothing().when(globusTokenRefreshService).refreshToken();
+        doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate/lsri")
+                                                                              .headers(httpHeaders)
+                                                                              .param("deviceCode", deviceCode)
+                                                                              .param("expiresIn", expiresIn)
                                                                               .contentType(MediaType.APPLICATION_JSON))
                                                              .andExpect(status().isOk())
                                                              .andReturn().getResponse().getContentAsString())
