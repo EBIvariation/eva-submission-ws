@@ -91,14 +91,10 @@ public class LsriTokenService {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
-            if (System.currentTimeMillis() - startTime > maxPollingTimeInSeconds * 1000L) {
-                // Stop polling after the maximum polling time
-                logger.error("Polling timed out!");
-                return null;
-            }
         }
 
+        // Stop polling after the maximum polling time
+        logger.error("Polling timed out!");
         return null;
     }
 }
