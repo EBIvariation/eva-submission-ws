@@ -34,7 +34,6 @@ public class SubmissionService {
         submission.setStatus(SubmissionStatus.OPEN.toString());
         submission.setInitiationTime(LocalDateTime.now());
         submission.setUploadUrl(uploadHttpDomain + "/" + directoryToCreate);
-
         return submissionRepository.save(submission);
     }
 

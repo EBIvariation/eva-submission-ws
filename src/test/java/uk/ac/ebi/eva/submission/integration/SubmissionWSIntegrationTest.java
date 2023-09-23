@@ -73,6 +73,28 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
+    public void testSubmissionAuthenticateLsri() throws Exception {
+        String userId = "lsriuser@lsri.com";
+        String token = "lsriUserToken";
+        String deviceCode = "deviceCode";
+        String expiresIn = "600";
+        when(lsriTokenService.pollForToken(anyString(), anyInt())).thenReturn(token);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        String userToken = mvc.perform(post("/v1/submission/auth/lsri")
+                        .headers(httpHeaders)
+                        .param("deviceCode", deviceCode)
+                        .param("expiresIn", expiresIn)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(userToken).isNotNull();
+        assertThat(userToken).isEqualTo(token);
+    }
+
+    @Test
+    @Transactional
     public void testSubmissionInitiateWebin() throws Exception {
         String userId = "webinUserId";
         String userToken = "webinUserToken";
@@ -82,7 +104,7 @@ public class SubmissionWSIntegrationTest {
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
-        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate/webin")
+        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate")
                                                                               .headers(httpHeaders)
                                                                               .contentType(MediaType.APPLICATION_JSON))
                                                              .andExpect(status().isOk())
@@ -103,17 +125,16 @@ public class SubmissionWSIntegrationTest {
     @Transactional
     public void testSubmissionInitiateLsri() throws Exception {
         String userId = "lsriuser@lsri.com";
-        String deviceCode = "deviceCode";
-        String expiresIn = "600";
-        when(lsriTokenService.getLsriUserIdFromToken(anyString(), anyInt())).thenReturn(userId);
+        String userToken = "lsriUserToken";
+        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(null);
+        when(lsriTokenService.getLsriUserIdFromToken(anyString())).thenReturn(userId);
         doNothing().when(globusTokenRefreshService).refreshToken();
         doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
 
         HttpHeaders httpHeaders = new HttpHeaders();
-        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate/lsri")
+        httpHeaders.setBearerAuth(userToken);
+        String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate")
                                                                               .headers(httpHeaders)
-                                                                              .param("deviceCode", deviceCode)
-                                                                              .param("expiresIn", expiresIn)
                                                                               .contentType(MediaType.APPLICATION_JSON))
                                                              .andExpect(status().isOk())
                                                              .andReturn().getResponse().getContentAsString())
@@ -132,9 +153,14 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionGetStatus() throws Exception {
+        String userId = "webinUserId";
+        String userToken = "webinUserToken";
+        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+
         String submissionId = createNewSubmissionEntry();
 
         HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
         mvc.perform(get("/v1/submission/" + submissionId + "/status")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -144,9 +170,14 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionUploaded() throws Exception {
+        String userId = "webinUserId";
+        String userToken = "webinUserToken";
+        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+
         String submissionId = createNewSubmissionEntry();
 
         HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -163,9 +194,15 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusCorrect() throws Exception {
+        String userId = "webinUserId";
+        String userToken = "webinUserToken";
+        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+
         String submissionId = createNewSubmissionEntry();
 
         HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+
         mvc.perform(put("/v1/submission/" + submissionId + "/status/COMPLETED")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -181,9 +218,14 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusWrong() throws Exception {
+        String userId = "webinUserId";
+        String userToken = "webinUserToken";
+        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+
         String submissionId = createNewSubmissionEntry();
 
         HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
         mvc.perform(put("/v1/submission/" + submissionId + "/status/complete")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -193,6 +235,7 @@ public class SubmissionWSIntegrationTest {
     private String createNewSubmissionEntry() {
         String submissionId = UUID.randomUUID().toString();
         Submission submission = new Submission(submissionId);
+        submission.setUserId("userId");
         submission.setStatus(SubmissionStatus.OPEN.toString());
         submission.setInitiationTime(LocalDateTime.now());
         submissionRepository.save(submission);
