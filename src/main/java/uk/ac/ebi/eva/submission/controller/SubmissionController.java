@@ -42,7 +42,7 @@ public class SubmissionController {
         return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
     }
 
-    private String getUserId(String bearerToken){
+    public String getUserId(String bearerToken){
         String userToken = bearerToken.replace("Bearer ", "");
         String userId;
         //TODO: Probably need to cache the token/UserId map
@@ -60,11 +60,7 @@ public class SubmissionController {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
         Submission submission = this.submissionService.initiateSubmission(userId);
-        if (Objects.nonNull(submission)) {
-            return new ResponseEntity<>(submission, HttpStatus.OK);
-        }else {
-            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
-        }
+        return new ResponseEntity<>(submission, HttpStatus.OK);
     }
 
     @PutMapping("submission/{submissionId}/uploaded")
