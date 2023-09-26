@@ -32,42 +32,84 @@ public class SubmissionController {
         this.lsriTokenService = lsriTokenService;
     }
 
-    private ResponseEntity<?> initiateSubmission(String userId) {
-        if (Objects.nonNull(userId)) {
-            Submission submission = this.submissionService.initiateSubmission(userId);
-            if (Objects.nonNull(submission)) {
-                return new ResponseEntity<>(submission, HttpStatus.OK);
-            }
+    @PostMapping("submission/auth/lsri")
+    public ResponseEntity<?> authenticateLSRI(@RequestParam("deviceCode") String deviceCode,
+                                              @RequestParam("expiresIn") int codeExpirationTimeInSeconds) {
+        String token = lsriTokenService.pollForToken(deviceCode, codeExpirationTimeInSeconds);
+        if (Objects.nonNull(token)) {
+            return new ResponseEntity<>(token, HttpStatus.OK);
         }
         return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
     }
 
-    @PostMapping("submission/initiate/webin")
-    public ResponseEntity<?> initiateSubmissionWebin(@RequestHeader("Authorization") String bearerToken) {
+    public String getUserId(String bearerToken){
         String userToken = bearerToken.replace("Bearer ", "");
-        return this.initiateSubmission(this.webinTokenService.getWebinUserIdFromToken(userToken));
+        String userId;
+        //TODO: Probably need to cache the token/UserId map
+        userId = this.webinTokenService.getWebinUserIdFromToken(userToken);
+        if (Objects.isNull(userId)) {
+            userId = this.lsriTokenService.getLsriUserIdFromToken(userToken);
+        }
+        return userId;
     }
 
-    @PostMapping("submission/initiate/lsri")
-    public ResponseEntity<?> initiateSubmissionLSRI(@RequestParam("deviceCode") String deviceCode,
-                                                    @RequestParam("expiresIn") int codeExpirationTimeInSeconds) {
-        return this.initiateSubmission(this.lsriTokenService.getLsriUserIdFromToken(deviceCode,
-                                                                                    codeExpirationTimeInSeconds));
+    @PostMapping("submission/initiate")
+    public ResponseEntity<?> initiateSubmission(@RequestHeader("Authorization") String bearerToken) {
+        String userId = this.getUserId(bearerToken);
+        if (Objects.isNull(userId)) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        Submission submission = this.submissionService.initiateSubmission(userId);
+        return new ResponseEntity<>(submission, HttpStatus.OK);
     }
 
     @PutMapping("submission/{submissionId}/uploaded")
-    public void markSubmissionUploaded(@PathVariable("submissionId") String submissionId) {
-        submissionService.markSubmissionUploaded(submissionId);
+    public ResponseEntity<?> markSubmissionUploaded(@RequestHeader("Authorization") String bearerToken,
+                                       @PathVariable("submissionId") String submissionId) {
+        String userId = this.getUserId(bearerToken);
+        if (Objects.isNull(userId)) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        // TODO: Confirm that this userId has access to the submission
+        Submission submission = this.submissionService.markSubmissionUploaded(submissionId);
+        if (Objects.nonNull(submission)) {
+            return new ResponseEntity<>(submission, HttpStatus.OK);
+        }else {
+            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
+        }
     }
 
     @GetMapping("submission/{submissionId}/status")
-    public String getSubmissionStatus(@PathVariable("submissionId") String submissionId) {
-        return submissionService.getSubmissionStatus(submissionId);
+    public ResponseEntity<?> getSubmissionStatus(@RequestHeader("Authorization") String bearerToken,
+                                      @PathVariable("submissionId") String submissionId) {
+        String userId = this.getUserId(bearerToken);
+        if (Objects.isNull(userId)) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        // TODO: Confirm that this userId has access to the submission
+        String submissionStatus = submissionService.getSubmissionStatus(submissionId);
+        if (Objects.nonNull(submissionStatus)) {
+            return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
+        }else {
+            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
+        }
     }
 
     // TODO: admin end point (should not be exposed to the user)
     @PutMapping("submission/{submissionId}/status/{status}")
-    public Submission markSubmissionStatus(@PathVariable("submissionId") String submissionId, @PathVariable("status") SubmissionStatus status) {
-        return submissionService.markSubmissionStatus(submissionId, status);
+    public ResponseEntity<?> markSubmissionStatus(@RequestHeader("Authorization") String bearerToken,
+                                           @PathVariable("submissionId") String submissionId,
+                                           @PathVariable("status") SubmissionStatus status) {
+        String userId = this.getUserId(bearerToken);
+        if (Objects.isNull(userId)) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        // TODO: Confirm that this userId has access to the submission
+        Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
+        if (Objects.nonNull(submission)) {
+            return new ResponseEntity<>(submission, HttpStatus.OK);
+        }else {
+            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
+        }
     }
 }

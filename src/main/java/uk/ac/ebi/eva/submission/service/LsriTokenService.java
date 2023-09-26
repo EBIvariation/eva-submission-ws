@@ -36,15 +36,14 @@ public class LsriTokenService {
 
     private final Logger logger = LoggerFactory.getLogger(LsriTokenService.class);
 
-    public String getLsriUserIdFromToken(String deviceCode, int codeExpirationTimeInSeconds) {
-        String userToken = this.pollForToken(deviceCode, codeExpirationTimeInSeconds);
+    public String getLsriUserIdFromToken(String userToken) {
         // The only definitive attribute we can expect from querying userInfo is the "sub" attribute
         // See https://connect2id.com/products/server/docs/api/userinfo#claims
         String tokenAttribute = "sub";
         return TokenServiceUtil.getUserId(userToken, this.userInfoUrl, tokenAttribute);
     }
 
-    private String pollForToken(String deviceCode, int maxPollingTimeInSeconds) {
+    public String pollForToken(String deviceCode, int maxPollingTimeInSeconds) {
         int pollingIntervalInSeconds = 5;
         long startTime = System.currentTimeMillis();
 
