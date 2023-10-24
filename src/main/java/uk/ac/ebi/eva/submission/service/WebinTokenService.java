@@ -10,7 +10,7 @@ public class WebinTokenService {
     private String userInfoUrl;
 
     public String getWebinUserIdFromToken(String userToken) {
-        String tokenAttribute = "id";
+        String tokenAttribute = "submissionAccountId";
         return TokenServiceUtil.getUserId(userToken, this.userInfoUrl, tokenAttribute);
     }
 }
