@@ -23,13 +23,15 @@ public class TokenServiceUtil {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode responseJson = objectMapper.readTree(response.getBody());
 
+            if(loginMethod == LoginMethod.WEBIN){
+                responseJson = responseJson.get("submissionContacts").get(0);
+            }
             String userId = responseJson.get(loginMethod.getUserIdToken()).asText();
-            String loginType = responseJson.get(loginMethod.getLoginType()).asText();
             String firstName = responseJson.get(loginMethod.getFirstNameToken()).asText();
             String lastName = responseJson.get(loginMethod.getLastNameToken()).asText();
             String email = responseJson.get(loginMethod.getEmailIdToken()).asText();
 
-            SubmissionUser user = new SubmissionUser(userId, loginType, firstName, lastName, email);
+            SubmissionUser user = new SubmissionUser(userId, loginMethod.getLoginType(), firstName, lastName, email);
             return user;
         } catch (Exception e) {
             // Handle errors while parsing the response JSON
