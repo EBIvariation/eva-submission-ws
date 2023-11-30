@@ -31,8 +31,7 @@ public class TokenServiceUtil {
             String lastName = responseJson.get(loginMethod.getLastNameToken()).asText();
             String email = responseJson.get(loginMethod.getEmailIdToken()).asText();
 
-            SubmissionUser user = new SubmissionUser(userId, loginMethod.getLoginType(), firstName, lastName, email);
-            return user;
+            return new SubmissionUser(userId, loginMethod.getLoginType(), firstName, lastName, email);
         } catch (Exception e) {
             // Handle errors while parsing the response JSON
             e.printStackTrace();
