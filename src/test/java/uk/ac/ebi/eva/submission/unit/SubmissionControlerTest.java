@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import uk.ac.ebi.eva.submission.controller.SubmissionController;
+import uk.ac.ebi.eva.submission.model.SubmissionUser;
 import uk.ac.ebi.eva.submission.service.*;
 
 
@@ -35,21 +36,26 @@ public class SubmissionControlerTest {
     @Test
     public void testGetUserIdLSRI() throws Exception {
         String userId = "lsriuser@lsri.com";
+        String loginType = LoginMethod.LSRI.getLoginType();
         String token = "lsriUserToken";
-        when(webinTokenService.getWebinUserIdFromToken(token)).thenReturn(null);
-        when(lsriTokenService.getLsriUserIdFromToken(token)).thenReturn(userId);
-        userId = submissionController.getUserId(token);
-        assertThat(userId).isNotNull();
-        assertThat(userId).isEqualTo(userId);
+        SubmissionUser user = new SubmissionUser(userId, loginType);
+        when(webinTokenService.getWebinUserFromToken(token)).thenReturn(null);
+        when(lsriTokenService.getLsriUserFromToken(token)).thenReturn(user);
+
+        SubmissionUser submissionUser = submissionController.getUser(token);
+        assertThat(submissionUser.getUserId()).isNotNull();
+        assertThat(submissionUser.getUserId()).isEqualTo(userId);
     }
 
     @Test
     public void testGetUserIdWebin() throws Exception {
         String userId = "lsriuser@lsri.com";
+        String loginType = LoginMethod.WEBIN.getLoginType();
         String token = "lsriUserToken";
-        when(webinTokenService.getWebinUserIdFromToken(token)).thenReturn(userId);
-        userId = submissionController.getUserId(token);
-        assertThat(userId).isNotNull();
-        assertThat(userId).isEqualTo(userId);
+        SubmissionUser user = new SubmissionUser(userId, loginType);
+        when(webinTokenService.getWebinUserFromToken(token)).thenReturn(user);
+        SubmissionUser submissionUser = submissionController.getUser(token);
+        assertThat(submissionUser.getUserId()).isNotNull();
+        assertThat(submissionUser.getUserId()).isEqualTo(userId);
     }
 }

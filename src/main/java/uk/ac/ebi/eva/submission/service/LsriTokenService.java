@@ -15,6 +15,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import uk.ac.ebi.eva.submission.model.SubmissionUser;
 
 import java.util.Objects;
 
@@ -36,11 +37,10 @@ public class LsriTokenService {
 
     private final Logger logger = LoggerFactory.getLogger(LsriTokenService.class);
 
-    public String getLsriUserIdFromToken(String userToken) {
+    public SubmissionUser getLsriUserFromToken(String userToken) {
         // The only definitive attribute we can expect from querying userInfo is the "sub" attribute
         // See https://connect2id.com/products/server/docs/api/userinfo#claims
-        String tokenAttribute = "sub";
-        return TokenServiceUtil.getUserId(userToken, this.userInfoUrl, tokenAttribute);
+        return TokenServiceUtil.getUser(userToken, this.userInfoUrl, LoginMethod.LSRI);
     }
 
     public String pollForToken(String deviceCode, int maxPollingTimeInSeconds) {

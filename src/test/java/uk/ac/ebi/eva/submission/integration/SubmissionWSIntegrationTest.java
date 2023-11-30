@@ -18,9 +18,12 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import uk.ac.ebi.eva.submission.model.Submission;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionUser;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionUserRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
+import uk.ac.ebi.eva.submission.service.LoginMethod;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
@@ -47,6 +50,9 @@ public class SubmissionWSIntegrationTest {
 
     @Autowired
     private SubmissionRepository submissionRepository;
+
+    @Autowired
+    private SubmissionUserRepository submissionUserRepository;
 
     @MockBean
     private WebinTokenService webinTokenService;
@@ -97,9 +103,9 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionInitiate() throws Exception {
-        String userId = "webinUserId";
         String userToken = "webinUserToken";
-        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+        SubmissionUser user = getWebinUser();
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(user);
         doNothing().when(globusTokenRefreshService).refreshToken();
         doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
 
@@ -115,22 +121,28 @@ public class SubmissionWSIntegrationTest {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
         assertThat(submission).isNotNull();
         assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
-        assertThat(submission.getUserId()).isEqualTo(userId);
         assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.OPEN.toString());
         assertThat(submission.getInitiationTime()).isNotNull();
         assertThat(submission.getUploadedTime()).isNull();
         assertThat(submission.getCompletionTime()).isNull();
+
+        SubmissionUser submissionUser= submission.getUser();
+        assertThat(submissionUser.getUserId()).isEqualTo(user.getUserId());
+        assertThat(submissionUser.getLoginType()).isEqualTo(user.getLoginType());
+        assertThat(submissionUser.getFirstName()).isEqualTo(user.getFirstName());
+        assertThat(submissionUser.getLastName()).isEqualTo(user.getLastName());
+        assertThat(submissionUser.getEmailId()).isEqualTo(user.getEmailId());
     }
 
 
     @Test
     @Transactional
     public void testSubmissionGetStatus() throws Exception {
-        String userId = "webinUserId";
         String userToken = "webinUserToken";
-        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+        SubmissionUser user = getWebinUser();
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(user);
 
-        String submissionId = createNewSubmissionEntry(userId);
+        String submissionId = createNewSubmissionEntry(user);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -143,11 +155,11 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionUploaded() throws Exception {
-        String userId = "webinUserId";
         String userToken = "webinUserToken";
-        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+        SubmissionUser user = getWebinUser();
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(user);
 
-        String submissionId = createNewSubmissionEntry(userId);
+        String submissionId = createNewSubmissionEntry(user);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -167,11 +179,11 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusCorrect() throws Exception {
-        String userId = "webinUserId";
         String userToken = "webinUserToken";
-        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+        SubmissionUser user = getWebinUser();
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(user);
 
-        String submissionId = createNewSubmissionEntry(userId);
+        String submissionId = createNewSubmissionEntry(user);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -191,11 +203,11 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusWrong() throws Exception {
-        String userId = "webinUserId";
         String userToken = "webinUserToken";
-        when(webinTokenService.getWebinUserIdFromToken(anyString())).thenReturn(userId);
+        SubmissionUser user = getWebinUser();
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(user);
 
-        String submissionId = createNewSubmissionEntry(userId);
+        String submissionId = createNewSubmissionEntry(user);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -205,10 +217,22 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
-    private String createNewSubmissionEntry(String userId) {
+    private SubmissionUser getWebinUser(){
+        String userId = "webinUserId";
+        String loginType = LoginMethod.WEBIN.getLoginType();
+        String firstName = "webin_first_name";
+        String lastName = "webin_last_name";
+        String email = "webinUserId@webin.com";
+
+        return new SubmissionUser(userId, loginType, firstName, lastName, email);
+    }
+
+    private String createNewSubmissionEntry(SubmissionUser submissionUser) {
+        submissionUserRepository.save(submissionUser);
+
         String submissionId = UUID.randomUUID().toString();
         Submission submission = new Submission(submissionId);
-        submission.setUserId(userId);
+        submission.setUser(submissionUser);
         submission.setStatus(SubmissionStatus.OPEN.toString());
         submission.setInitiationTime(LocalDateTime.now());
         submissionRepository.save(submission);

@@ -7,9 +7,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import uk.ac.ebi.eva.submission.model.SubmissionUser;
 
 public class TokenServiceUtil {
-    public static String getUserId(String userToken, String userInfoUrl, String tokenAttribute) {
+    public static SubmissionUser getUser(String userToken, String userInfoUrl, LoginMethod loginMethod) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(userToken);
 
@@ -21,7 +22,15 @@ public class TokenServiceUtil {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode responseJson = objectMapper.readTree(response.getBody());
-            return responseJson.get(tokenAttribute).asText();
+
+            String userId = responseJson.get(loginMethod.getUserIdToken()).asText();
+            String loginType = responseJson.get(loginMethod.getLoginType()).asText();
+            String firstName = responseJson.get(loginMethod.getFirstNameToken()).asText();
+            String lastName = responseJson.get(loginMethod.getLastNameToken()).asText();
+            String email = responseJson.get(loginMethod.getEmailIdToken()).asText();
+
+            SubmissionUser user = new SubmissionUser(userId, loginType, firstName, lastName, email);
+            return user;
         } catch (Exception e) {
             // Handle errors while parsing the response JSON
             e.printStackTrace();
