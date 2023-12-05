@@ -2,6 +2,7 @@ package uk.ac.ebi.eva.submission.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.Submission;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionUser;
@@ -43,7 +44,8 @@ public class SubmissionService {
         globusDirectoryProvisioner.createSubmissionDirectory(directoryToCreate);
 
         Optional<SubmissionUser> optSubmissionUser = userRepository.findById(submissionUser.getId());
-        if (!optSubmissionUser.isPresent()) {
+        // if the user is not present or if its primary email has changed, save/update the user
+        if (!optSubmissionUser.isPresent() || optSubmissionUser.get().getPrimaryEmail()!=submissionUser.getPrimaryEmail()) {
             userRepository.save(submissionUser);
         }
 
@@ -79,13 +81,13 @@ public class SubmissionService {
         return submissionRepository.save(submission);
     }
 
-    public boolean checkUserHasAccessToSubmission(SubmissionUser user, String submissionId){
+    public boolean checkUserHasAccessToSubmission(SubmissionUser user, String submissionId) {
         Optional<Submission> optSubmission = submissionRepository.findById(submissionId);
         if(optSubmission.isPresent()){
             SubmissionUser submissionUser = optSubmission.get().getUser();
             return submissionUser.getId() == user.getId();
         }else{
-            throw new RuntimeException("Given submission with id " + submissionId + "does not exist");
+            throw new SubmissionDoesNotExistException("Given submission with id " + submissionId + " does not exist");
         }
     }
 }

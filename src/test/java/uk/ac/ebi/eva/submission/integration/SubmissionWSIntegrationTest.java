@@ -139,6 +139,65 @@ public class SubmissionWSIntegrationTest {
 
     }
 
+    @Test
+    @Transactional
+    public void testUserUpdate() throws Exception {
+        String userToken = "webinUserToken";
+        doNothing().when(globusTokenRefreshService).refreshToken();
+        doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+
+        SubmissionUser orgUser = getWebinUser();
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(orgUser);
+
+        // create user
+        new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate")
+                                .headers(httpHeaders)
+                                .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString())
+                .get("submissionId").asText();
+
+        SubmissionUser userInDB = submissionUserRepository.findById(orgUser.getId()).get();
+        assertThat(userInDB.getId()).isEqualTo(orgUser.getId());
+        assertThat(userInDB.getUserId()).isEqualTo(orgUser.getUserId());
+        assertThat(userInDB.getLoginType()).isEqualTo(orgUser.getLoginType());
+        assertThat(userInDB.getPrimaryEmail()).isEqualTo(orgUser.getPrimaryEmail());
+        assertThat(userInDB.getFirstName()).isEqualTo(orgUser.getFirstName());
+        assertThat(userInDB.getLastName()).isEqualTo(orgUser.getLastName());
+
+        // update user's primary email, first name and last name
+        SubmissionUser otherUser = new SubmissionUser(orgUser.getUserId(), orgUser.getLoginType());
+        otherUser.setPrimaryEmail("other_primary_email");
+        otherUser.setFirstName("other_first_name");
+        otherUser.setLastName("other_last_name");
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(otherUser);
+
+        // user with same id is already present in db, but it's primary email will not match and should be updated in db
+        new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate")
+                                .headers(httpHeaders)
+                                .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString())
+                .get("submissionId").asText();
+
+
+        userInDB = submissionUserRepository.findById(otherUser.getId()).get();
+        // assert id, user id and login type remains same for the user
+        assertThat(userInDB.getId()).isEqualTo(orgUser.getId());
+        assertThat(userInDB.getUserId()).isEqualTo(orgUser.getUserId());
+        assertThat(userInDB.getLoginType()).isEqualTo(orgUser.getLoginType());
+
+        // assert primary email, first name and last name is updated
+        assertThat(userInDB.getPrimaryEmail()).isEqualTo(otherUser.getPrimaryEmail());
+        assertThat(userInDB.getFirstName()).isEqualTo(otherUser.getFirstName());
+        assertThat(userInDB.getLastName()).isEqualTo(otherUser.getLastName());
+
+
+    }
+
 
     @Test
     @Transactional
@@ -179,6 +238,24 @@ public class SubmissionWSIntegrationTest {
         assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
         assertThat(submission.getUploadedTime()).isNotNull();
         assertThat(submission.getCompletionTime()).isNull();
+    }
+
+    @Test
+    @Transactional
+    public void testSubmissionDoesNotExistException() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionUser user = getWebinUser();
+        when(webinTokenService.getWebinUserFromToken(anyString())).thenReturn(user);
+
+      String submissionId = "wrong_submission_id";
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Given submission with id " + submissionId + " does not exist"));
     }
 
     @Test

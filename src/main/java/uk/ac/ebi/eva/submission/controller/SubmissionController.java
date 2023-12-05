@@ -21,7 +21,7 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1")
-public class SubmissionController {
+public class SubmissionController extends BaseController {
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
     private final LsriTokenService lsriTokenService;
@@ -72,11 +72,7 @@ public class SubmissionController {
         }
 
         Submission submission = this.submissionService.markSubmissionUploaded(submissionId);
-        if (Objects.nonNull(submission)) {
-            return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
-        }else {
-            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
-        }
+        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
     }
 
     @GetMapping("submission/{submissionId}/status")
@@ -88,11 +84,7 @@ public class SubmissionController {
         }
 
         String submissionStatus = submissionService.getSubmissionStatus(submissionId);
-        if (Objects.nonNull(submissionStatus)) {
-            return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
-        }else {
-            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
-        }
+       return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
     }
 
     // TODO: admin end point (should not be exposed to the user)
@@ -106,11 +98,8 @@ public class SubmissionController {
         }
 
         Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
-        if (Objects.nonNull(submission)) {
-            return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
-        }else {
-            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
-        }
+        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
+
     }
 
     // strip confidential details (e.g. user details) before returning
