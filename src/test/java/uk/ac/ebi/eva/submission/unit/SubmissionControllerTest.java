@@ -16,7 +16,7 @@ import uk.ac.ebi.eva.submission.service.*;
 
 import static org.mockito.Mockito.when;
 
-public class SubmissionControlerTest {
+public class SubmissionControllerTest {
 
 
     @Mock

@@ -2,6 +2,7 @@ package uk.ac.ebi.eva.submission.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import uk.ac.ebi.eva.submission.model.LsriUserInfo;
 import uk.ac.ebi.eva.submission.model.SubmissionUser;
 
 import java.util.Objects;
@@ -40,7 +42,21 @@ public class LsriTokenService {
     public SubmissionUser getLsriUserFromToken(String userToken) {
         // The only definitive attribute we can expect from querying userInfo is the "sub" attribute
         // See https://connect2id.com/products/server/docs/api/userinfo#claims
-        return TokenServiceUtil.getUser(userToken, this.userInfoUrl, LoginMethod.LSRI);
+        String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
+        return createLSRIUser(restJsonResponse);
+    }
+
+    public SubmissionUser createLSRIUser(String jsonResponse){
+        // convert json response to LSRIUserInfo object
+        LsriUserInfo lsriUserInfo = new Gson().fromJson(jsonResponse, LsriUserInfo.class);
+
+        String userId = lsriUserInfo.getUserId();
+        String firstName = lsriUserInfo.getFirstName();
+        String lastName = lsriUserInfo.getLastName();
+        String email = lsriUserInfo.getEmail();
+
+        return new SubmissionUser(userId, LoginMethod.LSRI.getLoginType(), firstName, lastName, email);
+
     }
 
     public String pollForToken(String deviceCode, int maxPollingTimeInSeconds) {

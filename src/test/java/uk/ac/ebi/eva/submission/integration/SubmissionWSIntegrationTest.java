@@ -28,6 +28,9 @@ import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -131,7 +134,9 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionUser.getLoginType()).isEqualTo(user.getLoginType());
         assertThat(submissionUser.getFirstName()).isEqualTo(user.getFirstName());
         assertThat(submissionUser.getLastName()).isEqualTo(user.getLastName());
-        assertThat(submissionUser.getEmailId()).isEqualTo(user.getEmailId());
+        assertThat(submissionUser.getPrimaryEmail()).isEqualTo(user.getPrimaryEmail());
+        assertThat(new HashSet<>(submissionUser.getSecondaryEmails())).isEqualTo(new HashSet<>(user.getSecondaryEmails()));
+
     }
 
 
@@ -222,9 +227,11 @@ public class SubmissionWSIntegrationTest {
         String loginType = LoginMethod.WEBIN.getLoginType();
         String firstName = "webin_first_name";
         String lastName = "webin_last_name";
-        String email = "webinUserId@webin.com";
-
-        return new SubmissionUser(userId, loginType, firstName, lastName, email);
+        String primaryEmail = "webinUserId@webin.com";
+        List<String> secondaryEmails = new ArrayList<>();
+        secondaryEmails.add("webinUserId_1@webin.com");
+        secondaryEmails.add("webinUserId_2@webin.com");
+        return new SubmissionUser(userId, loginType, firstName, lastName, primaryEmail, secondaryEmails);
     }
 
     private String createNewSubmissionEntry(SubmissionUser submissionUser) {

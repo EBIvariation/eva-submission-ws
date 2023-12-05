@@ -4,10 +4,12 @@ import com.google.common.base.Objects;
 import org.springframework.lang.NonNull;
 
 import javax.persistence.Column;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
+import java.util.List;
 
 @Entity
 @Table(name = "submission_user", uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "login_type"})})
@@ -24,8 +26,12 @@ public class SubmissionUser {
     private String loginType;
 
     @NonNull
-    @Column(nullable = false, name = "email_id")
-    private String emailId;
+    @Column(nullable = false, name = "primary_email")
+    private String primaryEmail;
+
+    @ElementCollection
+    @Column(name = "secondary_emails")
+    private List<String> secondaryEmails;
 
     @NonNull
     @Column(nullable = false, name = "first_name")
@@ -45,13 +51,24 @@ public class SubmissionUser {
         this.loginType = loginType;
     }
 
-    public SubmissionUser(String userId, String loginType, String firstName, String lastName, String emailId) {
+    public SubmissionUser(String userId, String loginType, String firstName, String lastName, String primaryEmail) {
         this.id = getId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
         this.firstName = firstName;
         this.lastName = lastName;
-        this.emailId = emailId;
+        this.primaryEmail = primaryEmail;
+    }
+
+    public SubmissionUser(String userId, String loginType, String firstName, String lastName, String primaryEmail,
+                          List<String> secondaryEmails) {
+        this.id = getId(userId, loginType);
+        this.userId = userId;
+        this.loginType = loginType;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.primaryEmail = primaryEmail;
+        this.secondaryEmails = secondaryEmails;
     }
 
     public String getId() {
@@ -69,12 +86,20 @@ public class SubmissionUser {
     }
 
     @NonNull
-    public String getEmailId() {
-        return emailId;
+    public String getPrimaryEmail() {
+        return primaryEmail;
     }
 
-    public void setEmailId(@NonNull String emailId) {
-        this.emailId = emailId;
+    public void setPrimaryEmail(@NonNull String primaryEmail) {
+        this.primaryEmail = primaryEmail;
+    }
+
+    public List<String> getSecondaryEmails() {
+        return secondaryEmails;
+    }
+
+    public void setSecondaryEmails(List<String> secondaryEmails) {
+        this.secondaryEmails = secondaryEmails;
     }
 
     @NonNull
