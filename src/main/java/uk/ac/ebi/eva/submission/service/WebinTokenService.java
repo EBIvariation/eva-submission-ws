@@ -3,7 +3,7 @@ package uk.ac.ebi.eva.submission.service;
 import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import uk.ac.ebi.eva.submission.model.SubmissionUser;
+import uk.ac.ebi.eva.submission.model.SubmissionAccount;
 import uk.ac.ebi.eva.submission.model.WebinSubmissionContact;
 import uk.ac.ebi.eva.submission.model.WebinUserInfo;
 
@@ -17,16 +17,16 @@ public class WebinTokenService {
     @Value("${webin.userinfo.url}")
     private String userInfoUrl;
 
-    public SubmissionUser getWebinUserFromToken(String userToken) {
+    public SubmissionAccount getWebinUserAccountFromToken(String userToken) {
         String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
-        return createWebinUser(restJsonResponse);
+        return createWebinUserAccount(restJsonResponse);
     }
 
-    public SubmissionUser createWebinUser(String jsonResponse) {
+    public SubmissionAccount createWebinUserAccount(String jsonResponse) {
         // convert json response to WebinUserInfo object
         WebinUserInfo webinUserInfo = new Gson().fromJson(jsonResponse, WebinUserInfo.class);
 
-        String userId = webinUserInfo.getSubmissionAccountId();
+        String accountId = webinUserInfo.getSubmissionAccountId();
 
         WebinSubmissionContact mainContact;
         // Get main contact, if not present take the first one
@@ -44,7 +44,7 @@ public class WebinTokenService {
                 .filter(email -> !email.equals(mainContact.getEmailAddress()))
                 .collect(Collectors.toList());
 
-        return new SubmissionUser(userId, LoginMethod.WEBIN.getLoginType(), mainContact.getFirstName(),
+        return new SubmissionAccount(accountId, LoginMethod.WEBIN.getLoginType(), mainContact.getFirstName(),
                 mainContact.getSurname(), mainContact.getEmailAddress(), secondaryEmails);
     }
 }

@@ -17,7 +17,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import uk.ac.ebi.eva.submission.model.LsriUserInfo;
-import uk.ac.ebi.eva.submission.model.SubmissionUser;
+import uk.ac.ebi.eva.submission.model.SubmissionAccount;
 
 import java.util.Objects;
 
@@ -39,14 +39,14 @@ public class LsriTokenService {
 
     private final Logger logger = LoggerFactory.getLogger(LsriTokenService.class);
 
-    public SubmissionUser getLsriUserFromToken(String userToken) {
+    public SubmissionAccount getLsriUserAccountFromToken(String userToken) {
         // The only definitive attribute we can expect from querying userInfo is the "sub" attribute
         // See https://connect2id.com/products/server/docs/api/userinfo#claims
         String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
-        return createLSRIUser(restJsonResponse);
+        return createLSRIUserAccount(restJsonResponse);
     }
 
-    public SubmissionUser createLSRIUser(String jsonResponse){
+    public SubmissionAccount createLSRIUserAccount(String jsonResponse) {
         // convert json response to LSRIUserInfo object
         LsriUserInfo lsriUserInfo = new Gson().fromJson(jsonResponse, LsriUserInfo.class);
 
@@ -55,7 +55,7 @@ public class LsriTokenService {
         String lastName = lsriUserInfo.getLastName();
         String email = lsriUserInfo.getEmail();
 
-        return new SubmissionUser(userId, LoginMethod.LSRI.getLoginType(), firstName, lastName, email);
+        return new SubmissionAccount(userId, LoginMethod.LSRI.getLoginType(), firstName, lastName, email);
 
     }
 
@@ -68,7 +68,7 @@ public class LsriTokenService {
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.setBasicAuth(this.lsriClientId, this.lsriClientSecret);
 
-            MultiValueMap<String, String> map= new LinkedMultiValueMap<>();
+            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
             map.add("scope", "openid");
             map.add("device_code", deviceCode);
             map.add("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
@@ -78,8 +78,7 @@ public class LsriTokenService {
             ResponseEntity<String> response = null;
             try {
                 response = restTemplate.postForEntity(this.tokenUrl, request, String.class);
-            }
-            catch(HttpClientErrorException ex) {
+            } catch (HttpClientErrorException ex) {
                 int statusCode = ex.getRawStatusCode();
                 if (statusCode == HttpStatus.BAD_REQUEST.value()) {
                     // The user has not yet approved the access request
@@ -95,8 +94,7 @@ public class LsriTokenService {
                 // The user has approved the access request
                 try {
                     return new ObjectMapper().readTree(response.getBody()).get("access_token").asText();
-                }
-                catch (JsonProcessingException ex) {
+                } catch (JsonProcessingException ex) {
                     ex.printStackTrace();
                 }
             }

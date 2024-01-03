@@ -34,8 +34,8 @@ public class Submission {
 
     @NonNull
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false, referencedColumnName = "id")
-    private SubmissionUser user;
+    @JoinColumn(name = "submission_account_id", nullable = false, referencedColumnName = "id")
+    private SubmissionAccount submissionAccount;
 
     @Column(nullable = false)
     private LocalDateTime initiationTime;
@@ -63,12 +63,12 @@ public class Submission {
     }
 
     @NonNull
-    public SubmissionUser getUser() {
-        return user;
+    public SubmissionAccount getSubmissionAccount() {
+        return submissionAccount;
     }
 
-    public void setUser(@NonNull SubmissionUser user) {
-        this.user = user;
+    public void setSubmissionAccount(@NonNull SubmissionAccount submissionAccount) {
+        this.submissionAccount = submissionAccount;
     }
 
     public LocalDateTime getInitiationTime() {

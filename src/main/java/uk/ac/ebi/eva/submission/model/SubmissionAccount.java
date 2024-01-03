@@ -12,8 +12,8 @@ import javax.persistence.UniqueConstraint;
 import java.util.List;
 
 @Entity
-@Table(name = "submission_user", uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "login_type"})})
-public class SubmissionUser {
+@Table(name = "submission_account", uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "login_type"})})
+public class SubmissionAccount {
     @Id
     private String id;
 
@@ -41,18 +41,18 @@ public class SubmissionUser {
     @Column(nullable = false, name = "last_name")
     private String lastName;
 
-    public SubmissionUser() {
+    public SubmissionAccount() {
 
     }
 
-    public SubmissionUser(String userId, String loginType) {
-        this.id = getId(userId, loginType);
+    public SubmissionAccount(String userId, String loginType) {
+        this.id = createId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
     }
 
-    public SubmissionUser(String userId, String loginType, String firstName, String lastName, String primaryEmail) {
-        this.id = getId(userId, loginType);
+    public SubmissionAccount(String userId, String loginType, String firstName, String lastName, String primaryEmail) {
+        this.id = createId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
         this.firstName = firstName;
@@ -60,9 +60,9 @@ public class SubmissionUser {
         this.primaryEmail = primaryEmail;
     }
 
-    public SubmissionUser(String userId, String loginType, String firstName, String lastName, String primaryEmail,
-                          List<String> secondaryEmails) {
-        this.id = getId(userId, loginType);
+    public SubmissionAccount(String userId, String loginType, String firstName, String lastName, String primaryEmail,
+                             List<String> secondaryEmails) {
+        this.id = createId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
         this.firstName = firstName;
@@ -120,16 +120,16 @@ public class SubmissionUser {
         this.lastName = lastName;
     }
 
-    private String getId(String userId, String loginType) {
+    private String createId(String userId, String loginType) {
         return userId + "_" + loginType;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof SubmissionUser)) return false;
-        SubmissionUser user = (SubmissionUser) o;
-        return Objects.equal(getId(), user.getId());
+        if (!(o instanceof SubmissionAccount)) return false;
+        SubmissionAccount account = (SubmissionAccount) o;
+        return Objects.equal(getId(), account.getId());
     }
 
     @Override
