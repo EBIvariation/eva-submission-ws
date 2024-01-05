@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.model.Submission;
+import uk.ac.ebi.eva.submission.model.SubmissionAccount;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
@@ -20,7 +21,7 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1")
-public class SubmissionController {
+public class SubmissionController extends BaseController {
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
     private final LsriTokenService lsriTokenService;
@@ -42,74 +43,71 @@ public class SubmissionController {
         return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
     }
 
-    public String getUserId(String bearerToken){
+    public SubmissionAccount getSubmissionAccount(String bearerToken) {
         String userToken = bearerToken.replace("Bearer ", "");
-        String userId;
         //TODO: Probably need to cache the token/UserId map
-        userId = this.webinTokenService.getWebinUserIdFromToken(userToken);
-        if (Objects.isNull(userId)) {
-            userId = this.lsriTokenService.getLsriUserIdFromToken(userToken);
+        SubmissionAccount submissionAccount = this.webinTokenService.getWebinUserAccountFromToken(userToken);
+        if (Objects.isNull(submissionAccount)) {
+            submissionAccount = this.lsriTokenService.getLsriUserAccountFromToken(userToken);
         }
-        return userId;
+        return submissionAccount;
     }
 
     @PostMapping("submission/initiate")
     public ResponseEntity<?> initiateSubmission(@RequestHeader("Authorization") String bearerToken) {
-        String userId = this.getUserId(bearerToken);
-        if (Objects.isNull(userId)) {
+        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
+        if (Objects.isNull(submissionAccount)) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-        Submission submission = this.submissionService.initiateSubmission(userId);
-        return new ResponseEntity<>(submission, HttpStatus.OK);
+        Submission submission = this.submissionService.initiateSubmission(submissionAccount);
+        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
     }
 
     @PutMapping("submission/{submissionId}/uploaded")
     public ResponseEntity<?> markSubmissionUploaded(@RequestHeader("Authorization") String bearerToken,
-                                       @PathVariable("submissionId") String submissionId) {
-        String userId = this.getUserId(bearerToken);
-        if (Objects.isNull(userId)) {
+                                                    @PathVariable("submissionId") String submissionId) {
+        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
+        if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-        // TODO: Confirm that this userId has access to the submission
+
         Submission submission = this.submissionService.markSubmissionUploaded(submissionId);
-        if (Objects.nonNull(submission)) {
-            return new ResponseEntity<>(submission, HttpStatus.OK);
-        }else {
-            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
-        }
+        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
     }
 
     @GetMapping("submission/{submissionId}/status")
     public ResponseEntity<?> getSubmissionStatus(@RequestHeader("Authorization") String bearerToken,
-                                      @PathVariable("submissionId") String submissionId) {
-        String userId = this.getUserId(bearerToken);
-        if (Objects.isNull(userId)) {
+                                                 @PathVariable("submissionId") String submissionId) {
+        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
+        if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-        // TODO: Confirm that this userId has access to the submission
+
         String submissionStatus = submissionService.getSubmissionStatus(submissionId);
-        if (Objects.nonNull(submissionStatus)) {
-            return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
-        }else {
-            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
-        }
+        return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
     }
 
     // TODO: admin end point (should not be exposed to the user)
     @PutMapping("submission/{submissionId}/status/{status}")
     public ResponseEntity<?> markSubmissionStatus(@RequestHeader("Authorization") String bearerToken,
-                                           @PathVariable("submissionId") String submissionId,
-                                           @PathVariable("status") SubmissionStatus status) {
-        String userId = this.getUserId(bearerToken);
-        if (Objects.isNull(userId)) {
+                                                  @PathVariable("submissionId") String submissionId,
+                                                  @PathVariable("status") SubmissionStatus status) {
+        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
+        if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-        // TODO: Confirm that this userId has access to the submission
+
         Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
-        if (Objects.nonNull(submission)) {
-            return new ResponseEntity<>(submission, HttpStatus.OK);
-        }else {
-            return new ResponseEntity<>("Not found", HttpStatus.NOT_FOUND);
-        }
+        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
+
+    }
+
+    // strip confidential details (e.g. user details) before returning
+    private Submission toResponseSubmission(Submission submission) {
+        Submission responseSubmission = new Submission(submission.getSubmissionId());
+        responseSubmission.setStatus(submission.getStatus());
+        responseSubmission.setUploadUrl(submission.getUploadUrl());
+
+        return responseSubmission;
     }
 }

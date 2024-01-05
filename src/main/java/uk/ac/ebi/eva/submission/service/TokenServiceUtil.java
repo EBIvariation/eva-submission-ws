@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 public class TokenServiceUtil {
-    public static String getUserId(String userToken, String userInfoUrl, String tokenAttribute) {
+    public static String getUserInfoRestResponse(String userToken, String userInfoUrl) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(userToken);
 
@@ -21,7 +21,8 @@ public class TokenServiceUtil {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode responseJson = objectMapper.readTree(response.getBody());
-            return responseJson.get(tokenAttribute).asText();
+
+            return responseJson.toString();
         } catch (Exception e) {
             // Handle errors while parsing the response JSON
             e.printStackTrace();

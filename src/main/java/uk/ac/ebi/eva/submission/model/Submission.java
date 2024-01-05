@@ -5,6 +5,8 @@ import org.springframework.lang.NonNull;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -31,8 +33,9 @@ public class Submission {
     private String status;
 
     @NonNull
-    @Column(nullable = false, name = "user_id")
-    private String userId;
+    @ManyToOne
+    @JoinColumn(name = "submission_account_id", nullable = false, referencedColumnName = "id")
+    private SubmissionAccount submissionAccount;
 
     @Column(nullable = false)
     private LocalDateTime initiationTime;
@@ -60,12 +63,12 @@ public class Submission {
     }
 
     @NonNull
-    public String getUserId() {
-        return userId;
+    public SubmissionAccount getSubmissionAccount() {
+        return submissionAccount;
     }
 
-    public void setUserId(@NonNull String userId) {
-        this.userId = userId;
+    public void setSubmissionAccount(@NonNull SubmissionAccount submissionAccount) {
+        this.submissionAccount = submissionAccount;
     }
 
     public LocalDateTime getInitiationTime() {

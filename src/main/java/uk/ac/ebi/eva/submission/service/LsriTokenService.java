@@ -2,6 +2,7 @@ package uk.ac.ebi.eva.submission.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import uk.ac.ebi.eva.submission.model.LsriUserInfo;
+import uk.ac.ebi.eva.submission.model.SubmissionAccount;
 
 import java.util.Objects;
 
@@ -36,11 +39,24 @@ public class LsriTokenService {
 
     private final Logger logger = LoggerFactory.getLogger(LsriTokenService.class);
 
-    public String getLsriUserIdFromToken(String userToken) {
+    public SubmissionAccount getLsriUserAccountFromToken(String userToken) {
         // The only definitive attribute we can expect from querying userInfo is the "sub" attribute
         // See https://connect2id.com/products/server/docs/api/userinfo#claims
-        String tokenAttribute = "sub";
-        return TokenServiceUtil.getUserId(userToken, this.userInfoUrl, tokenAttribute);
+        String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
+        return createLSRIUserAccount(restJsonResponse);
+    }
+
+    public SubmissionAccount createLSRIUserAccount(String jsonResponse) {
+        // convert json response to LSRIUserInfo object
+        LsriUserInfo lsriUserInfo = new Gson().fromJson(jsonResponse, LsriUserInfo.class);
+
+        String userId = lsriUserInfo.getUserId();
+        String firstName = lsriUserInfo.getFirstName();
+        String lastName = lsriUserInfo.getLastName();
+        String email = lsriUserInfo.getEmail();
+
+        return new SubmissionAccount(userId, LoginMethod.LSRI.getLoginType(), firstName, lastName, email);
+
     }
 
     public String pollForToken(String deviceCode, int maxPollingTimeInSeconds) {
@@ -52,7 +68,7 @@ public class LsriTokenService {
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.setBasicAuth(this.lsriClientId, this.lsriClientSecret);
 
-            MultiValueMap<String, String> map= new LinkedMultiValueMap<>();
+            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
             map.add("scope", "openid");
             map.add("device_code", deviceCode);
             map.add("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
@@ -62,8 +78,7 @@ public class LsriTokenService {
             ResponseEntity<String> response = null;
             try {
                 response = restTemplate.postForEntity(this.tokenUrl, request, String.class);
-            }
-            catch(HttpClientErrorException ex) {
+            } catch (HttpClientErrorException ex) {
                 int statusCode = ex.getRawStatusCode();
                 if (statusCode == HttpStatus.BAD_REQUEST.value()) {
                     // The user has not yet approved the access request
@@ -79,8 +94,7 @@ public class LsriTokenService {
                 // The user has approved the access request
                 try {
                     return new ObjectMapper().readTree(response.getBody()).get("access_token").asText();
-                }
-                catch (JsonProcessingException ex) {
+                } catch (JsonProcessingException ex) {
                     ex.printStackTrace();
                 }
             }
