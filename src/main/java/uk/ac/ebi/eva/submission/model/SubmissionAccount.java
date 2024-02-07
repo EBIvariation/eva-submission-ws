@@ -12,8 +12,10 @@ import javax.persistence.UniqueConstraint;
 import java.util.List;
 
 @Entity
-@Table(name = "submission_account", uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "login_type"})})
+@Table(schema = "eva_submissions", name = "submission_account", uniqueConstraints = {@UniqueConstraint(columnNames =
+        {"user_id", "login_type"})})
 public class SubmissionAccount {
+
     @Id
     private String id;
 
