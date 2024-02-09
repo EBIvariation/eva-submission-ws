@@ -17,7 +17,7 @@ test:
   environment:
     name: test-env
   only:
-      - master
+      - main
       - tags
 
 # Not executed, parent job definition for package
@@ -45,7 +45,7 @@ package-internal:
     ENVIRONMENT_NAME: internal
     MAVEN_PROFILE: internal
   only:
-    - master
+    - main
 
 package-development:
   extends: .package
@@ -53,7 +53,7 @@ package-development:
     ENVIRONMENT_NAME: development
     MAVEN_PROFILE: development
   only:
-    - master
+    - main
 
 package-production:
   extends: .package
@@ -85,7 +85,7 @@ deploy-tomcat-internal:
   dependencies:
     - package-internal
   only:
-    - master
+    - main
 
 deploy-tomcat-development:
   extends: .deploy-tomcat
@@ -97,7 +97,7 @@ deploy-tomcat-development:
   dependencies:
     - package-development
   only:
-    - master
+    - main
 
 deploy-tomcat-production:
   extends: .deploy-tomcat
