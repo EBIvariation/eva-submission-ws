@@ -11,9 +11,23 @@ variables:
 
 test:
   stage: test
-  image: maven:3.6.1-jdk-8-alpine
+  image: ubuntu:latest
+  before_script:
+   - apt-get update
+   - apt-get upgrade -y
+   - apt-get install -y curl jq
   script:
-    - mvn test
+   - |
+     for i in {1..5}; do
+      echo "Finding Github CI status for ${CI_COMMIT_SHA}..." && export GITHUB_CI_STATUS=$(curl -s https://api.github.com/repos/EBIVariation/eva-submission-ws/actions/runs | jq --arg COMMIT_TO_FIND $CI_COMMIT_SHA -r '.workflow_runs | map(select(.head_sha == $COMMIT_TO_FIND and .conclusion == "success"))[0].conclusion') && [[ $GITHUB_CI_STATUS == "success" ]] && echo "Github CI run was successful!"
+      if [ $? -ne 0 ]; then
+       echo "Retrying..."
+       sleep 300
+      else
+       exit 0
+      fi
+     done
+     exit 1
   environment:
     name: test-env
   only:
