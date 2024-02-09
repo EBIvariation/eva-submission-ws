@@ -1,1 +1,1 @@
-CREATE SCHEMA IF NOT EXISTs eva_submissions;
+CREATE SCHEMA IF NOT EXISTS eva_submissions;
