@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
-@Table(name = "submission")
+@Table(schema = "eva_submissions", name = "submission")
 public class Submission {
 
     public Submission() {

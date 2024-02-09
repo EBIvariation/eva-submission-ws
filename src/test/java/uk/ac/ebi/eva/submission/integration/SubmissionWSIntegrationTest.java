@@ -69,7 +69,8 @@ public class SubmissionWSIntegrationTest {
     private GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
     @Container
-    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6");
+    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6")
+            .withInitScript("init.sql");
 
     @DynamicPropertySource
     static void dataSourceProperties(DynamicPropertyRegistry registry) {

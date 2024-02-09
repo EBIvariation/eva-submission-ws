@@ -8,8 +8,9 @@ import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
 
 @Entity
-@Table(name = "submission_details")
+@Table(schema = "eva_submissions", name = "submission_details")
 public class SubmissionDetails {
+
     @Id
     @Column(name = "submission_id")
     private String submissionId;
@@ -28,7 +29,7 @@ public class SubmissionDetails {
 
     }
 
-    public SubmissionDetails(Submission submission){
+    public SubmissionDetails(Submission submission) {
         this.submission = submission;
     }
 
