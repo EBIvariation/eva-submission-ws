@@ -17,7 +17,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import uk.ac.ebi.eva.submission.model.LsriUserInfo;
-import uk.ac.ebi.eva.submission.model.SubmissionAccount;
+import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 
 import java.util.Objects;
 

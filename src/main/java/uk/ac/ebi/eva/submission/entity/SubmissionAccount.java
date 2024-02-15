@@ -1,6 +1,5 @@
-package uk.ac.ebi.eva.submission.model;
+package uk.ac.ebi.eva.submission.entity;
 
-import com.google.common.base.Objects;
 import org.springframework.lang.NonNull;
 
 import javax.persistence.Column;
@@ -10,6 +9,7 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Table(schema = "eva_submissions", name = "submission_account", uniqueConstraints = {@UniqueConstraint(columnNames =
@@ -131,7 +131,7 @@ public class SubmissionAccount {
         if (this == o) return true;
         if (!(o instanceof SubmissionAccount)) return false;
         SubmissionAccount account = (SubmissionAccount) o;
-        return Objects.equal(getId(), account.getId());
+        return Objects.equals(getId(), account.getId());
     }
 
     @Override

@@ -1,5 +1,9 @@
-package uk.ac.ebi.eva.submission.controller;
+package uk.ac.ebi.eva.submission.controller.submissionws;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,9 +14,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import uk.ac.ebi.eva.submission.model.Submission;
-import uk.ac.ebi.eva.submission.model.SubmissionAccount;
-import uk.ac.ebi.eva.submission.model.SubmissionStatus;
+import uk.ac.ebi.eva.submission.controller.BaseController;
+import uk.ac.ebi.eva.submission.entity.Submission;
+import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
@@ -28,11 +32,19 @@ public class SubmissionController extends BaseController {
 
     public SubmissionController(SubmissionService submissionService, WebinTokenService webinTokenService,
                                 LsriTokenService lsriTokenService) {
+        super(webinTokenService, lsriTokenService);
         this.submissionService = submissionService;
         this.webinTokenService = webinTokenService;
         this.lsriTokenService = lsriTokenService;
     }
 
+    @Operation(summary = "This endpoint authenticates a user with LSRI")
+    @Parameters({
+            @Parameter(name = "deviceCode", description = "device code for authentication",
+                    required = true, in = ParameterIn.QUERY),
+            @Parameter(name = "expiresIn", description = "device code expiration time in seconds",
+                    required = true, in = ParameterIn.QUERY)
+    })
     @PostMapping("submission/auth/lsri")
     public ResponseEntity<?> authenticateLSRI(@RequestParam("deviceCode") String deviceCode,
                                               @RequestParam("expiresIn") int codeExpirationTimeInSeconds) {
@@ -43,16 +55,12 @@ public class SubmissionController extends BaseController {
         return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
     }
 
-    public SubmissionAccount getSubmissionAccount(String bearerToken) {
-        String userToken = bearerToken.replace("Bearer ", "");
-        //TODO: Probably need to cache the token/UserId map
-        SubmissionAccount submissionAccount = this.webinTokenService.getWebinUserAccountFromToken(userToken);
-        if (Objects.isNull(submissionAccount)) {
-            submissionAccount = this.lsriTokenService.getLsriUserAccountFromToken(userToken);
-        }
-        return submissionAccount;
-    }
-
+    @Operation(summary = "This endpoint marks the initiation of a submission. It will do the necessary prep work " +
+            "for receiving the submission files")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
+                    required = true, in = ParameterIn.HEADER)
+    })
     @PostMapping("submission/initiate")
     public ResponseEntity<?> initiateSubmission(@RequestHeader("Authorization") String bearerToken) {
         SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
@@ -60,9 +68,16 @@ public class SubmissionController extends BaseController {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
         Submission submission = this.submissionService.initiateSubmission(submissionAccount);
-        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
+        return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
     }
 
+    @Operation(summary = "Given a submission id, this endpoint will mark the submission as uploaded")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
+                    required = true, in = ParameterIn.HEADER),
+            @Parameter(name = "submissionId", description = "Id of the submission whose status needs to be retrieved",
+                    required = true, in = ParameterIn.PATH)
+    })
     @PutMapping("submission/{submissionId}/uploaded")
     public ResponseEntity<?> markSubmissionUploaded(@RequestHeader("Authorization") String bearerToken,
                                                     @PathVariable("submissionId") String submissionId) {
@@ -72,9 +87,16 @@ public class SubmissionController extends BaseController {
         }
 
         Submission submission = this.submissionService.markSubmissionUploaded(submissionId);
-        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
+        return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
     }
 
+    @Operation(summary = "Given a submission id, this endpoint retrieves the current status of a submission")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
+                    required = true, in = ParameterIn.HEADER),
+            @Parameter(name = "submissionId", description = "Id of the submission whose status needs to be retrieved",
+                    required = true, in = ParameterIn.PATH)
+    })
     @GetMapping("submission/{submissionId}/status")
     public ResponseEntity<?> getSubmissionStatus(@RequestHeader("Authorization") String bearerToken,
                                                  @PathVariable("submissionId") String submissionId) {
@@ -87,27 +109,4 @@ public class SubmissionController extends BaseController {
         return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
     }
 
-    // TODO: admin end point (should not be exposed to the user)
-    @PutMapping("submission/{submissionId}/status/{status}")
-    public ResponseEntity<?> markSubmissionStatus(@RequestHeader("Authorization") String bearerToken,
-                                                  @PathVariable("submissionId") String submissionId,
-                                                  @PathVariable("status") SubmissionStatus status) {
-        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
-        if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
-        }
-
-        Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
-        return new ResponseEntity<>(toResponseSubmission(submission), HttpStatus.OK);
-
-    }
-
-    // strip confidential details (e.g. user details) before returning
-    private Submission toResponseSubmission(Submission submission) {
-        Submission responseSubmission = new Submission(submission.getSubmissionId());
-        responseSubmission.setStatus(submission.getStatus());
-        responseSubmission.setUploadUrl(submission.getUploadUrl());
-
-        return responseSubmission;
-    }
 }
