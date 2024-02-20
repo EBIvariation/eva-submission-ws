@@ -18,7 +18,7 @@ public class SwaggerConfig extends WebMvcConfigurerAdapter {
     private SwaggerInterceptAdapter interceptAdapter;
 
     @Bean
-    public OpenAPI seqColOpenAPI() {
+    public OpenAPI evaSubmissionOpenAPI() {
         return new OpenAPI()
                 .info(new Info().title("EVA Submission Webservices")
                               .description("A Service that allows users to submit to the EVA")
