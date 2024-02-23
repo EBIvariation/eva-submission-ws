@@ -1,4 +1,4 @@
-package uk.ac.ebi.eva.submission.model;
+package uk.ac.ebi.eva.submission.entity;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;

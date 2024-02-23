@@ -3,7 +3,7 @@ package uk.ac.ebi.eva.submission.service;
 import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import uk.ac.ebi.eva.submission.model.SubmissionAccount;
+import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.model.WebinSubmissionContact;
 import uk.ac.ebi.eva.submission.model.WebinUserInfo;
 

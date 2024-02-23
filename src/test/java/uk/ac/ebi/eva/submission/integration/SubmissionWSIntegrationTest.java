@@ -3,6 +3,7 @@ package uk.ac.ebi.eva.submission.integration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -15,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import uk.ac.ebi.eva.submission.model.Submission;
-import uk.ac.ebi.eva.submission.model.SubmissionAccount;
+import uk.ac.ebi.eva.submission.entity.Submission;
+import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
@@ -47,6 +48,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Testcontainers
 public class SubmissionWSIntegrationTest {
+
+    @Value("${controller.auth.admin.username}")
+    private String TEST_ADMIN_USERNAME;
+
+    @Value("${controller.auth.admin.password}")
+    private String TEST_ADMIN_PASSWORD;
+
     @Autowired
     private MockMvc mvc;
 
@@ -268,9 +276,9 @@ public class SubmissionWSIntegrationTest {
         String submissionId = createNewSubmissionEntry(submissionAccount);
 
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBearerAuth(userToken);
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
 
-        mvc.perform(put("/v1/submission/" + submissionId + "/status/COMPLETED")
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/status/COMPLETED")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
@@ -292,8 +300,8 @@ public class SubmissionWSIntegrationTest {
         String submissionId = createNewSubmissionEntry(submissionAccount);
 
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBearerAuth(userToken);
-        mvc.perform(put("/v1/submission/" + submissionId + "/status/complete")
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/status/complete")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
