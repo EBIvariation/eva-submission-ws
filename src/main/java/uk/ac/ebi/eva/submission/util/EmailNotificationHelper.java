@@ -30,7 +30,7 @@ public class EmailNotificationHelper {
                 .addGap(1)
                 .addText("Here is the update for your submission: ")
                 .addGap(1)
-                .addText("submission id: " + submissionId)
+                .addText("submission ID: " + submissionId)
                 .addLineBreak()
                 .addText("Submission Status: " + submissionStatus)
                 .addLineBreak()

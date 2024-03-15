@@ -33,7 +33,7 @@ public class EmailNotificationHelperTest {
                 "<br /><br />" +
                 "Here is the update for your submission: " +
                 "<br /><br />" +
-                "submission id: 12345<br />" +
+                "submission ID: 12345<br />" +
                 "Submission Status: UPLOADED<br />" +
                 "Result: <b><span style=\"color:green;\">SUCCESS</span></b>" +
                 "<br /><br /><br />" +
@@ -56,7 +56,7 @@ public class EmailNotificationHelperTest {
                 "<br /><br />" +
                 "Here is the update for your submission: " +
                 "<br /><br />" +
-                "submission id: 12345<br />" +
+                "submission ID: 12345<br />" +
                 "Submission Status: UPLOADED<br />" +
                 "Result: <b><span style=\"color:red;\">FAILED</span></b>" +
                 "<br /><br /><br />" +
