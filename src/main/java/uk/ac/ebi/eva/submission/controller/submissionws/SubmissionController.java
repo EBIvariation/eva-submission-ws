@@ -88,7 +88,7 @@ public class SubmissionController extends BaseController {
         }
 
         Submission submission = this.submissionService.markSubmissionUploaded(submissionId);
-        submissionService.sendMailNotificationForStatusUpdate(submissionAccount, submissionId, SubmissionStatus.UPLOADED, Boolean.TRUE);
+        submissionService.sendMailNotificationForStatusUpdate(submissionAccount, submissionId, SubmissionStatus.UPLOADED, true);
         return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
     }
 

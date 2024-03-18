@@ -102,7 +102,7 @@ public class SubmissionService {
     }
 
     public void sendMailNotificationForStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
-                                                    SubmissionStatus submissionStatus, Boolean success) {
+                                                    SubmissionStatus submissionStatus, boolean success) {
         String sendTo = submissionAccount.getPrimaryEmail();
         String subject = emailHelper.getSubjectForSubmissionStatusUpdate(submissionStatus, success);
         String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, submissionStatus, success);

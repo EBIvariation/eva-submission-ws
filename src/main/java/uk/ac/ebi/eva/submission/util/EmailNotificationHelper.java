@@ -8,13 +8,13 @@ import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 public class EmailNotificationHelper {
     private static final String EVA_HELPDESK_EMAIL = "eva-helpdesk@ebi.ac.uk";
 
-    public String getSubjectForSubmissionStatusUpdate(SubmissionStatus submissionStatus, Boolean success) {
-        String result = (success == Boolean.TRUE) ? "SUCCESS" : "FAILED";
+    public String getSubjectForSubmissionStatusUpdate(SubmissionStatus submissionStatus, boolean success) {
+        String result = (success == true) ? "SUCCESS" : "FAILED";
         return String.format("EVA Submission Update: %s %s", submissionStatus, result);
     }
 
     public String getTextForSubmissionStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
-                                       SubmissionStatus submissionStatus, Boolean success) {
+                                       SubmissionStatus submissionStatus, boolean success) {
         String result;
         String resultColor;
         if (success) {

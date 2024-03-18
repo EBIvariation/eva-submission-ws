@@ -20,7 +20,7 @@ public class EmailNotificationHelperTest {
     @Test
     public void testGetSubjectForSubmissionStatusUpdate() {
         String expectedSubject = "EVA Submission Update: UPLOADED SUCCESS";
-        String actualSubject = emailNotificationHelper.getSubjectForSubmissionStatusUpdate(SubmissionStatus.UPLOADED, Boolean.TRUE);
+        String actualSubject = emailNotificationHelper.getSubjectForSubmissionStatusUpdate(SubmissionStatus.UPLOADED, true);
 
         assertEquals(expectedSubject, actualSubject);
     }
@@ -43,7 +43,7 @@ public class EmailNotificationHelperTest {
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "12345", SubmissionStatus.UPLOADED, Boolean.TRUE);
+                "12345", SubmissionStatus.UPLOADED, true);
 
         assertEquals(expectedText, actualText);
     }
@@ -66,7 +66,7 @@ public class EmailNotificationHelperTest {
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "12345", SubmissionStatus.UPLOADED, Boolean.FALSE);
+                "12345", SubmissionStatus.UPLOADED, false);
 
         assertEquals(expectedText, actualText);
     }
