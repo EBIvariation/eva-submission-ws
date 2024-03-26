@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
@@ -87,6 +88,7 @@ public class SubmissionController extends BaseController {
         }
 
         Submission submission = this.submissionService.markSubmissionUploaded(submissionId);
+        submissionService.sendMailNotificationForStatusUpdate(submissionAccount, submissionId, SubmissionStatus.UPLOADED, true);
         return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
     }
 

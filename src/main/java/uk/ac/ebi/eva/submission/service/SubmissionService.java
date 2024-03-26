@@ -2,13 +2,16 @@ package uk.ac.ebi.eva.submission.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
+import uk.ac.ebi.eva.submission.util.HTMLHelper;
+import uk.ac.ebi.eva.submission.util.MailSender;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -25,17 +28,24 @@ public class SubmissionService {
 
     private final GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
+    private final MailSender mailSender;
+
     @Value("${globus.uploadHttpDomain}")
     private String uploadHttpDomain;
+
+    private EmailNotificationHelper emailHelper;
 
     public SubmissionService(SubmissionRepository submissionRepository,
                              SubmissionAccountRepository submissionAccountRepository,
                              SubmissionDetailsRepository submissionDetailsRepository,
-                             GlobusDirectoryProvisioner globusDirectoryProvisioner) {
+                             GlobusDirectoryProvisioner globusDirectoryProvisioner,
+                             MailSender mailSender, EmailNotificationHelper emailHelper) {
         this.submissionRepository = submissionRepository;
         this.submissionAccountRepository = submissionAccountRepository;
         this.submissionDetailsRepository = submissionDetailsRepository;
         this.globusDirectoryProvisioner = globusDirectoryProvisioner;
+        this.mailSender = mailSender;
+        this.emailHelper = emailHelper;
     }
 
     public Submission initiateSubmission(SubmissionAccount submissionAccount) {
@@ -45,7 +55,7 @@ public class SubmissionService {
 
         Optional<SubmissionAccount> optSubmissionAccount = submissionAccountRepository.findById(submissionAccount.getId());
         // if the user account is not present or if its primary email has changed, save/update the user account
-        if (!optSubmissionAccount.isPresent() || optSubmissionAccount.get().getPrimaryEmail() != submissionAccount.getPrimaryEmail()) {
+        if (!optSubmissionAccount.isPresent() || !optSubmissionAccount.get().getPrimaryEmail().equals(submissionAccount.getPrimaryEmail())) {
             submissionAccountRepository.save(submissionAccount);
         }
 
@@ -85,9 +95,17 @@ public class SubmissionService {
         Optional<Submission> optSubmission = submissionRepository.findById(submissionId);
         if (optSubmission.isPresent()) {
             SubmissionAccount submissionAccount = optSubmission.get().getSubmissionAccount();
-            return submissionAccount.getId() == account.getId();
+            return submissionAccount.getId().equals(account.getId());
         } else {
             throw new SubmissionDoesNotExistException("Given submission with id " + submissionId + " does not exist");
         }
+    }
+
+    public void sendMailNotificationForStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
+                                                    SubmissionStatus submissionStatus, boolean success) {
+        String sendTo = submissionAccount.getPrimaryEmail();
+        String subject = emailHelper.getSubjectForSubmissionStatusUpdate(submissionStatus, success);
+        String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, submissionStatus, success);
+        mailSender.sendEmail(sendTo, subject, body);
     }
 }

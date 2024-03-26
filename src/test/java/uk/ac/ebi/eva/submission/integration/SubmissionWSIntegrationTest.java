@@ -26,6 +26,7 @@ import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.service.LoginMethod;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
+import uk.ac.ebi.eva.submission.util.MailSender;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -75,6 +76,9 @@ public class SubmissionWSIntegrationTest {
 
     @MockBean
     private GlobusDirectoryProvisioner globusDirectoryProvisioner;
+
+    @MockBean
+    private MailSender mailSender;
 
     @Container
     static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6")
@@ -230,6 +234,7 @@ public class SubmissionWSIntegrationTest {
         String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
 
         String submissionId = createNewSubmissionEntry(submissionAccount);
 
