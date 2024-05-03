@@ -1,16 +1,18 @@
 package uk.ac.ebi.eva.submission.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
+import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
-import uk.ac.ebi.eva.submission.util.HTMLHelper;
 import uk.ac.ebi.eva.submission.util.MailSender;
 
 import java.time.LocalDateTime;
@@ -19,6 +21,9 @@ import java.util.UUID;
 
 @Service
 public class SubmissionService {
+    private static final String PROJECT = "project";
+    private static final String TITLE = "title";
+    private static final String DESCRIPTION = "description";
 
     private final SubmissionRepository submissionRepository;
 
@@ -68,7 +73,23 @@ public class SubmissionService {
         return submissionRepository.save(submission);
     }
 
-    public Submission markSubmissionUploaded(String submissionId) {
+    public Submission uploadMetadataJsonAndMarkUploaded(String submissionId, JsonNode metadataJson) {
+        SubmissionDetails submissionDetails = new SubmissionDetails(submissionId);
+        try {
+            JsonNode project = metadataJson.get(PROJECT);
+            String projectTitle = project.get(TITLE).asText();
+            String projectDescription = project.get(DESCRIPTION).asText();
+
+            submissionDetails.setProjectTitle(projectTitle);
+            submissionDetails.setProjectDescription(projectDescription);
+        } catch (Exception e) {
+            throw new RequiredFieldsMissingException("Required fields project title and project description " +
+                    "could not be found in metadata json");
+        }
+
+        submissionDetails.setMetadataJson(metadataJson);
+        submissionDetailsRepository.save(submissionDetails);
+
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
         submission.setStatus(SubmissionStatus.UPLOADED.toString());
         submission.setUploadedTime(LocalDateTime.now());

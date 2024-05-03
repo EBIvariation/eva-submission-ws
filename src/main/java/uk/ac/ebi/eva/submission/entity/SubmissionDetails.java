@@ -1,5 +1,9 @@
 package uk.ac.ebi.eva.submission.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
+import org.hibernate.annotations.TypeDef;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
@@ -9,8 +13,8 @@ import javax.persistence.Table;
 
 @Entity
 @Table(schema = "eva_submissions", name = "submission_details")
+@TypeDef(typeClass = JsonType.class, defaultForType = JsonNode.class)
 public class SubmissionDetails {
-
     @Id
     @Column(name = "submission_id")
     private String submissionId;
@@ -19,18 +23,20 @@ public class SubmissionDetails {
     @PrimaryKeyJoinColumn(name = "submission_id", referencedColumnName = "submission_id")
     private Submission submission;
 
-    @Column(nullable = false, name = "project_alias")
-    private String projectAlias;
+    @Column(nullable = false, name = "project_title")
+    private String projectTitle;
 
-    @Column(nullable = false, name = "description")
-    private String description;
+    @Column(nullable = false, name = "project_description")
+    private String projectDescription;
+
+    @Column(columnDefinition = "jsonb", name = "metadata_json", nullable = false)
+    private JsonNode metadataJson;
 
     public SubmissionDetails() {
-
     }
 
-    public SubmissionDetails(Submission submission) {
-        this.submission = submission;
+    public SubmissionDetails(String submissionId) {
+        this.submissionId = submissionId;
     }
 
     public String getSubmissionId() {
@@ -41,19 +47,31 @@ public class SubmissionDetails {
         return submission;
     }
 
-    public String getProjectAlias() {
-        return projectAlias;
+    public void setSubmission(Submission submission) {
+        this.submission = submission;
     }
 
-    public void setProjectAlias(String projectAlias) {
-        this.projectAlias = projectAlias;
+    public String getProjectTitle() {
+        return projectTitle;
     }
 
-    public String getDescription() {
-        return description;
+    public void setProjectTitle(String projectTitle) {
+        this.projectTitle = projectTitle;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public String getProjectDescription() {
+        return projectDescription;
+    }
+
+    public void setProjectDescription(String projectDescription) {
+        this.projectDescription = projectDescription;
+    }
+
+    public JsonNode getMetadataJson() {
+        return metadataJson;
+    }
+
+    public void setMetadataJson(JsonNode metadataJson) {
+        this.metadataJson = metadataJson;
     }
 }

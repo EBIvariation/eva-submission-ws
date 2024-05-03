@@ -39,7 +39,9 @@ public class BaseController {
         Submission responseSubmission = new Submission(submission.getSubmissionId());
         responseSubmission.setStatus(submission.getStatus());
         responseSubmission.setUploadUrl(submission.getUploadUrl());
-
+        responseSubmission.setInitiationTime(submission.getInitiationTime());
+        responseSubmission.setUploadedTime(submission.getUploadedTime());
+        responseSubmission.setCompletionTime(submission.getCompletionTime());
         return responseSubmission;
     }
 }
