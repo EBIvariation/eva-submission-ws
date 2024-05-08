@@ -18,8 +18,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
@@ -64,6 +66,9 @@ public class SubmissionWSIntegrationTest {
 
     @Autowired
     private SubmissionAccountRepository submissionAccountRepository;
+
+    @Autowired
+    private SubmissionDetailsRepository submissionDetailsRepository;
 
     @MockBean
     private WebinTokenService webinTokenService;
@@ -230,18 +235,21 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
-    public void testMarkSubmissionUploaded() throws Exception {
+    public void testUploadMetadataJsonAndMarkUploadedd() throws Exception {
         String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
         doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
 
         String submissionId = createNewSubmissionEntry(submissionAccount);
-
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        String metadataJson = "{\"project\": {\"title\":\"" + projectTitle + "\",\"description\":\"" + projectDescription + "\"}}";
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
                         .headers(httpHeaders)
+                        .content(metadataJson)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
@@ -251,6 +259,38 @@ public class SubmissionWSIntegrationTest {
         assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
         assertThat(submission.getUploadedTime()).isNotNull();
         assertThat(submission.getCompletionTime()).isNull();
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submissionDetails.getProjectTitle()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getProjectDescription()).isEqualTo(projectDescription);
+        assertThat(submissionDetails.getMetadataJson()).isNotNull();
+        assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
+    }
+
+    @Test
+    @Transactional
+    public void testRequiredMetadataFieldsNotProvided() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
+
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+        String projectDescription = "test_project_description";
+        String metadataJson = "{\"project\": {\"description\":\"" + projectDescription + "\"}}";
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(metadataJson)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Required fields project title and project description " +
+                        "could not be found in metadata json"));
     }
 
     @Test
@@ -261,11 +301,15 @@ public class SubmissionWSIntegrationTest {
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
 
         String submissionId = "wrong_submission_id";
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        String metadataJson = "{\"project\": {\"title\":\"" + projectTitle + "\",\"description\":\"" + projectDescription + "\"}}";
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
                         .headers(httpHeaders)
+                        .content(metadataJson)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("Given submission with id " + submissionId + " does not exist"));
@@ -274,7 +318,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusCorrect() throws Exception {
-        String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
 
@@ -298,7 +341,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusWrong() throws Exception {
-        String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
 

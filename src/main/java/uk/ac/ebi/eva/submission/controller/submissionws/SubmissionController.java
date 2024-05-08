@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.controller.submissionws;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
@@ -81,15 +84,20 @@ public class SubmissionController extends BaseController {
     })
     @PutMapping("submission/{submissionId}/uploaded")
     public ResponseEntity<?> markSubmissionUploaded(@RequestHeader("Authorization") String bearerToken,
-                                                    @PathVariable("submissionId") String submissionId) {
+                                                    @PathVariable("submissionId") String submissionId,
+                                                    @RequestBody JsonNode metadataJson) {
         SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
         if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
 
-        Submission submission = this.submissionService.markSubmissionUploaded(submissionId);
-        submissionService.sendMailNotificationForStatusUpdate(submissionAccount, submissionId, SubmissionStatus.UPLOADED, true);
-        return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
+        try {
+            Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
+            submissionService.sendMailNotificationForStatusUpdate(submissionAccount, submissionId, SubmissionStatus.UPLOADED, true);
+            return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
+        } catch (RequiredFieldsMissingException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        }
     }
 
     @Operation(summary = "Given a submission id, this endpoint retrieves the current status of a submission")
