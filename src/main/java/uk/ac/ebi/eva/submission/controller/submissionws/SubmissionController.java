@@ -20,6 +20,7 @@ import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
+import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
@@ -100,23 +101,18 @@ public class SubmissionController extends BaseController {
         }
     }
 
-    @Operation(summary = "Given a submission id, this endpoint retrieves the current status of a submission")
+    @Operation(summary = "Given a submission id, this endpoint retrieves the current status of the submission")
     @Parameters({
-            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
-                    required = true, in = ParameterIn.HEADER),
             @Parameter(name = "submissionId", description = "Id of the submission whose status needs to be retrieved",
                     required = true, in = ParameterIn.PATH)
     })
     @GetMapping("submission/{submissionId}/status")
-    public ResponseEntity<?> getSubmissionStatus(@RequestHeader("Authorization") String bearerToken,
-                                                 @PathVariable("submissionId") String submissionId) {
-        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
-        if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+    public ResponseEntity<?> getSubmissionStatus(@PathVariable("submissionId") String submissionId) {
+        try {
+            String submissionStatus = submissionService.getSubmissionStatus(submissionId);
+            return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
-
-        String submissionStatus = submissionService.getSubmissionStatus(submissionId);
-        return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
     }
-
 }

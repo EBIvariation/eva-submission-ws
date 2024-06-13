@@ -235,6 +235,22 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
+    public void testSubmissionGetStatusSubmissionDoesNotExist() throws Exception {
+        String userToken = "webinUserToken";
+        String submissionId = "test123";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(get("/v1/submission/" + submissionId + "/status")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpectAll(status().isNotFound(), content().string("Submission with Id test123 does not exist"));
+    }
+
+    @Test
+    @Transactional
     public void testUploadMetadataJsonAndMarkUploadedd() throws Exception {
         String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();

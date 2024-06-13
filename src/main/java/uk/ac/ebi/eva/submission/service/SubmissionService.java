@@ -99,6 +99,10 @@ public class SubmissionService {
 
     public String getSubmissionStatus(String submissionId) {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        if (submission == null) {
+            throw new SubmissionDoesNotExistException("Submission with Id " + submissionId + " does not exist");
+        }
+
         return submission.getStatus();
     }
 
