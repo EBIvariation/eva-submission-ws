@@ -16,6 +16,7 @@ import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.MailSender;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -132,5 +133,11 @@ public class SubmissionService {
         String subject = emailHelper.getSubjectForSubmissionStatusUpdate(submissionStatus, success);
         String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, submissionStatus, success);
         mailSender.sendEmail(sendTo, subject, body);
+    }
+
+    public List<Submission> getSubmissionsByStatus(SubmissionStatus status) {
+
+        return submissionRepository.findByStatus(status.toString());
+
     }
 }

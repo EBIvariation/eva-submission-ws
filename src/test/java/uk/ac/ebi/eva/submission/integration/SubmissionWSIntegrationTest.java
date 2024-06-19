@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -44,8 +46,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -211,8 +212,6 @@ public class SubmissionWSIntegrationTest {
         assertThat(userAccountInDB.getPrimaryEmail()).isEqualTo(otherUserAccount.getPrimaryEmail());
         assertThat(userAccountInDB.getFirstName()).isEqualTo(otherUserAccount.getFirstName());
         assertThat(userAccountInDB.getLastName()).isEqualTo(otherUserAccount.getLastName());
-
-
     }
 
 
@@ -370,6 +369,26 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @Transactional
+    public void testGetSubmissionByStatus() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        String submissionId3 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.OPEN);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submissions/status/" + SubmissionStatus.UPLOADED)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].submissionId").value(containsInAnyOrder(submissionId1, submissionId2)))
+                .andExpect(jsonPath("$[*].submissionId").value(not(containsInAnyOrder(submissionId3))));
+    }
+
     private SubmissionAccount getWebinUserAccount() {
         String accountId = "webinAccountId";
         String loginType = LoginMethod.WEBIN.getLoginType();
@@ -383,12 +402,16 @@ public class SubmissionWSIntegrationTest {
     }
 
     private String createNewSubmissionEntry(SubmissionAccount submissionAccount) {
+        return createNewSubmissionEntry(submissionAccount, SubmissionStatus.OPEN);
+    }
+
+    private String createNewSubmissionEntry(SubmissionAccount submissionAccount, SubmissionStatus status) {
         submissionAccountRepository.save(submissionAccount);
 
         String submissionId = UUID.randomUUID().toString();
         Submission submission = new Submission(submissionId);
         submission.setSubmissionAccount(submissionAccount);
-        submission.setStatus(SubmissionStatus.OPEN.toString());
+        submission.setStatus(status.toString());
         submission.setInitiationTime(LocalDateTime.now());
         submissionRepository.save(submission);
 

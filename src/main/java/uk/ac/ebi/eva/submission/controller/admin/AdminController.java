@@ -7,16 +7,20 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
+import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
+
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/v1/admin")
@@ -43,5 +47,20 @@ public class AdminController extends BaseController {
                                                   @PathVariable("status") SubmissionStatus status) {
         Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
         return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
+    }
+
+    @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")
+    @Parameters({
+            @Parameter(name="status", description = "Desired status of the submission ",
+                    required = true, in= ParameterIn.PATH)
+    })
+    @GetMapping("submissions/status/{status}")
+    public ResponseEntity<?> getSubmissionsbyStatus(@PathVariable("status") SubmissionStatus status) {
+        try {
+            ArrayList<Submission> submissions = (ArrayList<Submission>) submissionService.getSubmissionsByStatus(status);
+            return new ResponseEntity<>(submissions, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
     }
 }
