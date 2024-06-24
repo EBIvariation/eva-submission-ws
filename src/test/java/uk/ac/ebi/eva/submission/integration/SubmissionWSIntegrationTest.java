@@ -1,6 +1,7 @@
 package uk.ac.ebi.eva.submission.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,9 +20,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
+import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
@@ -70,6 +75,9 @@ public class SubmissionWSIntegrationTest {
 
     @Autowired
     private SubmissionDetailsRepository submissionDetailsRepository;
+
+    @Autowired
+    private SubmissionProcessingRepository submissionProcessingRepository;
 
     @MockBean
     private WebinTokenService webinTokenService;
@@ -389,6 +397,61 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(jsonPath("$[*].submissionId").value(not(containsInAnyOrder(submissionId3))));
     }
 
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessingByStepAndStatus() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.READY_FOR_PROCESSING);
+        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.ON_HOLD);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submission-processes/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].submissionId").value(containsInAnyOrder(submissionId1)));
+    }
+
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionProcessingByStatus() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.READY_FOR_PROCESSING);
+        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.ON_HOLD);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId1 + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionProcessing submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId1);
+        assertThat(submissionProc).isNotNull();
+        assertThat(submissionProc.getSubmissionId()).isEqualTo(submissionId1);
+        assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
+        assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.SUCCESS.toString());
+        assertThat(submissionProc.getLastUpdateTime()).isNotNull();
+    }
+
+
+
+
     private SubmissionAccount getWebinUserAccount() {
         String accountId = "webinAccountId";
         String loginType = LoginMethod.WEBIN.getLoginType();
@@ -416,6 +479,15 @@ public class SubmissionWSIntegrationTest {
         submissionRepository.save(submission);
 
         return submissionId;
+    }
 
+    private void createNewSubmissionProcessingEntry(String submissionId, SubmissionProcessingStep step,
+                                                    SubmissionProcessingStatus status) {
+        SubmissionProcessing submissionProcessing = new SubmissionProcessing(submissionId);
+        submissionProcessing.setStep(step.toString());
+        submissionProcessing.setStatus(status.toString());
+        submissionProcessing.setPriority(5);
+        submissionProcessing.setLastUpdateTime(LocalDateTime.now());
+        submissionProcessingRepository.save(submissionProcessing);
     }
 }

@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
+import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
@@ -63,4 +66,44 @@ public class AdminController extends BaseController {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
     }
+
+    @Operation(summary = "Given a submission id, this endpoint updates the processing status of the submission to the one provided",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name="submissionId", description = "Id of the submission whose status needs to be updated",
+                    required = true, in= ParameterIn.PATH),
+            @Parameter(name="step", description = "The processing step of the submission",
+                    required = true, in= ParameterIn.PATH),
+            @Parameter(name="status", description = "The status of the processing step for this submission",
+                    required = true, in= ParameterIn.PATH)
+    })
+    @PutMapping("submission-process/{submissionId}/{step}/{status}")
+    public ResponseEntity<?> markSubmissionProcessStepAndStatus(@PathVariable("submissionId") String submissionId,
+                                                                @PathVariable("step") SubmissionProcessingStep step,
+                                                                @PathVariable("status") SubmissionProcessingStatus status) {
+        SubmissionProcessing submissionProc = this.submissionService.markSubmissionProcessStepAndStatus(submissionId, step, status);
+        return new ResponseEntity<>(submissionProc, HttpStatus.OK);
+    }
+
+
+    @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")
+    @Parameters({
+            @Parameter(name="step", description = "The processing step of the submission.",
+                    required = true, in= ParameterIn.PATH),
+            @Parameter(name="status", description = "The status of the submission processing step.",
+                    required = true, in= ParameterIn.PATH)
+    })
+    @GetMapping("submission-processes/{step}/{status}")
+    public ResponseEntity<?> getSubmissionsProcessingByStepAndStatus(
+            @PathVariable("step") SubmissionProcessingStep step,
+            @PathVariable("status") SubmissionProcessingStatus status) {
+        try {
+            ArrayList<SubmissionProcessing> submissions = (ArrayList<SubmissionProcessing>) submissionService.getSubmissionsByProcessingStepAndStatus(step, status);
+            return new ResponseEntity<>(submissions, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
 }

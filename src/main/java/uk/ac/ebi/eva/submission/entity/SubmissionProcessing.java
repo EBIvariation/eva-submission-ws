@@ -1,0 +1,106 @@
+    package uk.ac.ebi.eva.submission.entity;
+
+import org.springframework.lang.NonNull;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+@Entity
+@Table(schema = "eva_submissions", name = "submission_processing_status")
+public class SubmissionProcessing {
+
+    public SubmissionProcessing() {
+
+    }
+
+    public SubmissionProcessing(String submissionId) {
+        this.submissionId = submissionId;
+    }
+
+    @Id
+    @NonNull
+    @Column(nullable = false, name = "submission_id")
+    private String submissionId;
+
+    @NonNull
+    @Column(nullable = false)
+    private String step;
+
+    @NonNull
+    @Column(nullable = false)
+    private String status;
+
+    @NonNull
+    @Column(nullable = false)
+    private Integer priority;
+
+    @Column(nullable = false)
+    private LocalDateTime lastUpdateTime;
+
+    public String getSubmissionId() {
+        return submissionId;
+    }
+
+    @NonNull
+    public String getStep() {
+        return step;
+    }
+
+    public void setStep(@NonNull String step) {
+        this.step = step;
+    }
+
+    @NonNull
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(@NonNull String status) {
+        this.status = status;
+    }
+
+    @NonNull
+    public Integer getPriority() {
+        return priority;
+    }
+
+    public void setPriority(@NonNull Integer priority) {
+        this.priority = priority;
+    }
+
+    public LocalDateTime getLastUpdateTime() {
+        return lastUpdateTime;
+    }
+
+    public void setLastUpdateTime(LocalDateTime lastUpdateTime) {
+        this.lastUpdateTime = lastUpdateTime;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof SubmissionProcessing)) return false;
+        SubmissionProcessing that = (SubmissionProcessing) o;
+        return getSubmissionId().equals(that.getSubmissionId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getSubmissionId());
+    }
+
+    @Override
+    public String toString() {
+        return "Submission{" +
+                "submissionId='" + submissionId + '\'' +
+                ", step=" + step +
+                ", status=" + status +
+                ", priority=" + priority +
+                ", lastUpdateTime=" + lastUpdateTime +
+                '}';
+    }
+}
