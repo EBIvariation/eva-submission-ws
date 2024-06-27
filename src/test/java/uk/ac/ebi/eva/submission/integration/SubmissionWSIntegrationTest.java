@@ -450,8 +450,6 @@ public class SubmissionWSIntegrationTest {
     }
 
 
-
-
     private SubmissionAccount getWebinUserAccount() {
         String accountId = "webinAccountId";
         String loginType = LoginMethod.WEBIN.getLoginType();

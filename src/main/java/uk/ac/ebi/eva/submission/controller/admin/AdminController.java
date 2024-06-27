@@ -94,12 +94,8 @@ public class AdminController extends BaseController {
     public ResponseEntity<?> getSubmissionsProcessingByStepAndStatus(
             @PathVariable("step") SubmissionProcessingStep step,
             @PathVariable("status") SubmissionProcessingStatus status) {
-        try {
-            ArrayList<SubmissionProcessing> submissions = (ArrayList<SubmissionProcessing>) submissionService.getSubmissionsByProcessingStepAndStatus(step, status);
-            return new ResponseEntity<>(submissions, HttpStatus.OK);
-        } catch (SubmissionDoesNotExistException ex) {
-            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
-        }
+        ArrayList<SubmissionProcessing> submissions = (ArrayList<SubmissionProcessing>) submissionService.getSubmissionsByProcessingStepAndStatus(step, status);
+        return new ResponseEntity<>(submissions, HttpStatus.OK);
     }
 
 }
