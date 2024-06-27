@@ -487,7 +487,6 @@ public class SubmissionWSIntegrationTest {
         submissionProcessing.setStep(step.toString());
         submissionProcessing.setStatus(status.toString());
         submissionProcessing.setPriority(5);
-        submissionProcessing.setLastUpdateTime(LocalDateTime.now());
         submissionProcessingRepository.save(submissionProcessing);
     }
 }

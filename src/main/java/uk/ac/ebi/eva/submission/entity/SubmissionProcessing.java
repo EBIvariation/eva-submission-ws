@@ -6,6 +6,8 @@ import org.springframework.lang.NonNull;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -27,7 +29,7 @@ public class SubmissionProcessing {
     @Column(nullable = false, name = "submission_id")
     private String submissionId;
     
-     @ManyToOne
+    @OneToOne
     @JoinColumn(name = "submission_id", referencedColumnName = "submission_id", insertable = false, updatable = false)
     private Submission submission;
 
