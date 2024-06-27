@@ -59,7 +59,7 @@ public class AdminController extends BaseController {
     })
     @GetMapping("submissions/status/{status}")
     public ResponseEntity<?> getSubmissionsbyStatus(@PathVariable("status") SubmissionStatus status) {
-        ArrayList<Submission> submissions = (ArrayList<Submission>) submissionService.getSubmissionsByStatus(status);
+        List<Submission> submissions = submissionService.getSubmissionsByStatus(status);
         return new ResponseEntity<>(stripUserDetails(submissions), HttpStatus.OK);
     }
 
