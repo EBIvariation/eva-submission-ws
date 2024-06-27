@@ -38,7 +38,7 @@ public class BaseController {
     }
 
     public List<Submission> stripUserDetails(List<Submission> submissions){
-        return submission.stream().map(this::stripUserDetails).collect(Collectors.toList());
+        return submissions.stream().map(this::stripUserDetails).collect(Collectors.toList());
     }
 
     public Submission stripUserDetails(Submission submission) {

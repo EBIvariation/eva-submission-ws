@@ -23,7 +23,7 @@ import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
-import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/v1/admin")
@@ -81,7 +81,6 @@ public class AdminController extends BaseController {
         SubmissionProcessing submissionProc = this.submissionService.markSubmissionProcessStepAndStatus(submissionId, step, status);
         return new ResponseEntity<>(submissionProc, HttpStatus.OK);
     }
-
 
     @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status")
     @Parameters({
