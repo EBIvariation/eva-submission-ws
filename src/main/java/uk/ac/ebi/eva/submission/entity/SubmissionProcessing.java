@@ -26,6 +26,10 @@ public class SubmissionProcessing {
     @NonNull
     @Column(nullable = false, name = "submission_id")
     private String submissionId;
+    
+     @ManyToOne
+    @JoinColumn(name = "submission_id", referencedColumnName = "submission_id", insertable = false, updatable = false)
+    private Submission submission;
 
     @NonNull
     @Column(nullable = false)
