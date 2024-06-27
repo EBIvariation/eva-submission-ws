@@ -1,5 +1,6 @@
     package uk.ac.ebi.eva.submission.entity;
 
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.lang.NonNull;
 
 import javax.persistence.Column;
@@ -39,6 +40,7 @@ public class SubmissionProcessing {
     private Integer priority;
 
     @Column(nullable = false)
+    @UpdateTimestamp
     private LocalDateTime lastUpdateTime;
 
     public String getSubmissionId() {
@@ -74,10 +76,6 @@ public class SubmissionProcessing {
 
     public LocalDateTime getLastUpdateTime() {
         return lastUpdateTime;
-    }
-
-    public void setLastUpdateTime(LocalDateTime lastUpdateTime) {
-        this.lastUpdateTime = lastUpdateTime;
     }
 
     @Override

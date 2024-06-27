@@ -61,7 +61,7 @@ public class AdminController extends BaseController {
     public ResponseEntity<?> getSubmissionsbyStatus(@PathVariable("status") SubmissionStatus status) {
         try {
             ArrayList<Submission> submissions = (ArrayList<Submission>) submissionService.getSubmissionsByStatus(status);
-            return new ResponseEntity<>(submissions, HttpStatus.OK);
+            return new ResponseEntity<>(stripUserDetails(submissions), HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
