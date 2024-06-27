@@ -144,9 +144,7 @@ public class SubmissionService {
     }
 
     public List<Submission> getSubmissionsByStatus(SubmissionStatus status) {
-
         return submissionRepository.findByStatus(status.toString());
-
     }
 
     public List<SubmissionProcessing> getSubmissionsByProcessingStepAndStatus(SubmissionProcessingStep step,

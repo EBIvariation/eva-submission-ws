@@ -1,4 +1,4 @@
-    package uk.ac.ebi.eva.submission.entity;
+package uk.ac.ebi.eva.submission.entity;
 
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.lang.NonNull;
@@ -35,9 +35,9 @@ public class SubmissionProcessing {
     @Column(nullable = false)
     private String status;
 
-    @NonNull
-    @Column(nullable = false)
-    private Integer priority;
+     @NonNull
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 5")
+    private Integer priority = 5;
 
     @Column(nullable = false)
     @UpdateTimestamp

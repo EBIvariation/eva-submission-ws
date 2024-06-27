@@ -83,7 +83,7 @@ public class AdminController extends BaseController {
     }
 
 
-    @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")
+    @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status")
     @Parameters({
             @Parameter(name="step", description = "The processing step of the submission.",
                     required = true, in= ParameterIn.PATH),
