@@ -59,12 +59,8 @@ public class AdminController extends BaseController {
     })
     @GetMapping("submissions/status/{status}")
     public ResponseEntity<?> getSubmissionsbyStatus(@PathVariable("status") SubmissionStatus status) {
-        try {
-            ArrayList<Submission> submissions = (ArrayList<Submission>) submissionService.getSubmissionsByStatus(status);
-            return new ResponseEntity<>(stripUserDetails(submissions), HttpStatus.OK);
-        } catch (SubmissionDoesNotExistException ex) {
-            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
-        }
+        ArrayList<Submission> submissions = (ArrayList<Submission>) submissionService.getSubmissionsByStatus(status);
+        return new ResponseEntity<>(stripUserDetails(submissions), HttpStatus.OK);
     }
 
     @Operation(summary = "Given a submission id, this endpoint updates the processing status of the submission to the one provided",
