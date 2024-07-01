@@ -9,7 +9,9 @@ import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class BaseController {
     private final WebinTokenService webinTokenService;
@@ -33,6 +35,10 @@ public class BaseController {
             submissionAccount = this.lsriTokenService.getLsriUserAccountFromToken(userToken);
         }
         return submissionAccount;
+    }
+
+    public List<Submission> stripUserDetails(List<Submission> submissions){
+        return submissions.stream().map(this::stripUserDetails).collect(Collectors.toList());
     }
 
     public Submission stripUserDetails(Submission submission) {

@@ -1,6 +1,7 @@
 package uk.ac.ebi.eva.submission.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,9 +20,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
+import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
@@ -37,6 +42,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -44,8 +51,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -69,6 +75,9 @@ public class SubmissionWSIntegrationTest {
 
     @Autowired
     private SubmissionDetailsRepository submissionDetailsRepository;
+
+    @Autowired
+    private SubmissionProcessingRepository submissionProcessingRepository;
 
     @MockBean
     private WebinTokenService webinTokenService;
@@ -211,8 +220,6 @@ public class SubmissionWSIntegrationTest {
         assertThat(userAccountInDB.getPrimaryEmail()).isEqualTo(otherUserAccount.getPrimaryEmail());
         assertThat(userAccountInDB.getFirstName()).isEqualTo(otherUserAccount.getFirstName());
         assertThat(userAccountInDB.getLastName()).isEqualTo(otherUserAccount.getLastName());
-
-
     }
 
 
@@ -370,6 +377,79 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @Transactional
+    public void testGetSubmissionByStatus() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        String submissionId3 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.OPEN);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submissions/status/" + SubmissionStatus.UPLOADED)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].submissionId").value(containsInAnyOrder(submissionId1, submissionId2)))
+                .andExpect(jsonPath("$[*].submissionId").value(not(containsInAnyOrder(submissionId3))));
+    }
+
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessingByStepAndStatus() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.READY_FOR_PROCESSING);
+        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.ON_HOLD);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submission-processes/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].submissionId").value(containsInAnyOrder(submissionId1)));
+    }
+
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionProcessStepAndStatus() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.READY_FOR_PROCESSING);
+        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.ON_HOLD);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId1 + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionProcessing submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId1);
+        assertThat(submissionProc).isNotNull();
+        assertThat(submissionProc.getSubmissionId()).isEqualTo(submissionId1);
+        assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
+        assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.SUCCESS.toString());
+        assertThat(submissionProc.getLastUpdateTime()).isNotNull();
+    }
+
+
     private SubmissionAccount getWebinUserAccount() {
         String accountId = "webinAccountId";
         String loginType = LoginMethod.WEBIN.getLoginType();
@@ -383,16 +463,28 @@ public class SubmissionWSIntegrationTest {
     }
 
     private String createNewSubmissionEntry(SubmissionAccount submissionAccount) {
+        return createNewSubmissionEntry(submissionAccount, SubmissionStatus.OPEN);
+    }
+
+    private String createNewSubmissionEntry(SubmissionAccount submissionAccount, SubmissionStatus status) {
         submissionAccountRepository.save(submissionAccount);
 
         String submissionId = UUID.randomUUID().toString();
         Submission submission = new Submission(submissionId);
         submission.setSubmissionAccount(submissionAccount);
-        submission.setStatus(SubmissionStatus.OPEN.toString());
+        submission.setStatus(status.toString());
         submission.setInitiationTime(LocalDateTime.now());
         submissionRepository.save(submission);
 
         return submissionId;
+    }
 
+    private void createNewSubmissionProcessingEntry(String submissionId, SubmissionProcessingStep step,
+                                                    SubmissionProcessingStatus status) {
+        SubmissionProcessing submissionProcessing = new SubmissionProcessing(submissionId);
+        submissionProcessing.setStep(step.toString());
+        submissionProcessing.setStatus(status.toString());
+        submissionProcessing.setPriority(5);
+        submissionProcessingRepository.save(submissionProcessing);
     }
 }

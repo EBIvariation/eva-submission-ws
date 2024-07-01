@@ -6,16 +6,21 @@ import org.springframework.stereotype.Service;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
+import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.MailSender;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +36,8 @@ public class SubmissionService {
 
     private final SubmissionDetailsRepository submissionDetailsRepository;
 
+    private final SubmissionProcessingRepository submissionProcessingRepository;
+
     private final GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
     private final MailSender mailSender;
@@ -43,11 +50,13 @@ public class SubmissionService {
     public SubmissionService(SubmissionRepository submissionRepository,
                              SubmissionAccountRepository submissionAccountRepository,
                              SubmissionDetailsRepository submissionDetailsRepository,
+                             SubmissionProcessingRepository submissionProcessingRepository,
                              GlobusDirectoryProvisioner globusDirectoryProvisioner,
                              MailSender mailSender, EmailNotificationHelper emailHelper) {
         this.submissionRepository = submissionRepository;
         this.submissionAccountRepository = submissionAccountRepository;
         this.submissionDetailsRepository = submissionDetailsRepository;
+        this.submissionProcessingRepository = submissionProcessingRepository;
         this.globusDirectoryProvisioner = globusDirectoryProvisioner;
         this.mailSender = mailSender;
         this.emailHelper = emailHelper;
@@ -133,4 +142,25 @@ public class SubmissionService {
         String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, submissionStatus, success);
         mailSender.sendEmail(sendTo, subject, body);
     }
+
+    public List<Submission> getSubmissionsByStatus(SubmissionStatus status) {
+        return submissionRepository.findByStatus(status.toString());
+    }
+
+    public List<SubmissionProcessing> getSubmissionsByProcessingStepAndStatus(SubmissionProcessingStep step,
+                                                                              SubmissionProcessingStatus status) {
+        return submissionProcessingRepository.findByStepAndStatus(step.toString(), status.toString());
+
+    }
+
+    public SubmissionProcessing markSubmissionProcessStepAndStatus(String submissionId,
+                                                                   SubmissionProcessingStep step,
+                                                                   SubmissionProcessingStatus status) {
+        SubmissionProcessing submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId);
+        submissionProc.setStep(step.toString());
+        submissionProc.setStatus(status.toString());
+        return submissionProcessingRepository.save(submissionProc);
+    }
+
+
 }
