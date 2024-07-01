@@ -41,7 +41,7 @@ public class SubmissionProcessing {
     @Column(nullable = false)
     private String status;
 
-     @NonNull
+    @NonNull
     @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 5")
     private Integer priority = 5;
 

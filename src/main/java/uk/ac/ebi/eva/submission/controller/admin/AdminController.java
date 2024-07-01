@@ -65,7 +65,7 @@ public class AdminController extends BaseController {
 
     @Operation(summary = "Given a submission id, this endpoint updates the processing status of the submission to the one provided",
             security = {@SecurityRequirement(name = "basicAuth")
-            })
+    })
     @Parameters({
             @Parameter(name="submissionId", description = "Id of the submission whose status needs to be updated",
                     required = true, in= ParameterIn.PATH),

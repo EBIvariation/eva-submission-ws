@@ -154,8 +154,8 @@ public class SubmissionService {
     }
 
     public SubmissionProcessing markSubmissionProcessStepAndStatus(String submissionId,
-                                                                    SubmissionProcessingStep step,
-                                                                    SubmissionProcessingStatus status) {
+                                                                   SubmissionProcessingStep step,
+                                                                   SubmissionProcessingStatus status) {
         SubmissionProcessing submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId);
         submissionProc.setStep(step.toString());
         submissionProc.setStatus(status.toString());
