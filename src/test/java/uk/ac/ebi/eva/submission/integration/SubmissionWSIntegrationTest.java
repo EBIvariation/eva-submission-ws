@@ -423,7 +423,7 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
-    public void testMarkSubmissionProcessingByStatus() throws Exception {
+    public void testMarkSubmissionProcessStepAndStatus() throws Exception {
         SubmissionAccount submissionAccount = getWebinUserAccount();
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
 
