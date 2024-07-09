@@ -109,7 +109,7 @@ public class SubmissionService {
     public String getSubmissionStatus(String submissionId) {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
         if (submission == null) {
-            throw new SubmissionDoesNotExistException("Submission with Id " + submissionId + " does not exist");
+            throw new SubmissionDoesNotExistException(submissionId);
         }
 
         return submission.getStatus();
@@ -117,6 +117,9 @@ public class SubmissionService {
 
     public Submission markSubmissionStatus(String submissionId, SubmissionStatus status) {
         Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        if (submission == null) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
         submission.setStatus(status.toString());
         if (status == SubmissionStatus.COMPLETED) {
             submission.setCompletionTime(LocalDateTime.now());
@@ -131,7 +134,7 @@ public class SubmissionService {
             SubmissionAccount submissionAccount = optSubmission.get().getSubmissionAccount();
             return submissionAccount.getId().equals(account.getId());
         } else {
-            throw new SubmissionDoesNotExistException("Given submission with id " + submissionId + " does not exist");
+            throw new SubmissionDoesNotExistException(submissionId);
         }
     }
 
@@ -156,7 +159,16 @@ public class SubmissionService {
     public SubmissionProcessing markSubmissionProcessStepAndStatus(String submissionId,
                                                                    SubmissionProcessingStep step,
                                                                    SubmissionProcessingStatus status) {
+        Optional<Submission> submission = submissionRepository.findById(submissionId);
+        if (!submission.isPresent()) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
+
         SubmissionProcessing submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId);
+        if (submissionProc == null) {
+            submissionProc = new SubmissionProcessing(submissionId);
+        }
+
         submissionProc.setStep(step.toString());
         submissionProc.setStatus(status.toString());
         return submissionProcessingRepository.save(submissionProc);

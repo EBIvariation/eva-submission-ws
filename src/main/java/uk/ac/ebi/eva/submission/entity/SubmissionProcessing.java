@@ -1,6 +1,7 @@
 package uk.ac.ebi.eva.submission.entity;
 
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.envers.Audited;
 import org.springframework.lang.NonNull;
 
 import javax.persistence.Column;
@@ -12,7 +13,10 @@ import javax.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+import static org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED;
+
 @Entity
+@Audited(targetAuditMode = NOT_AUDITED)
 @Table(schema = "eva_submissions", name = "submission_processing_status")
 public class SubmissionProcessing {
 
