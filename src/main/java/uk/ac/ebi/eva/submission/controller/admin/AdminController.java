@@ -48,8 +48,12 @@ public class AdminController extends BaseController {
     @PutMapping("submission/{submissionId}/status/{status}")
     public ResponseEntity<?> markSubmissionStatus(@PathVariable("submissionId") String submissionId,
                                                   @PathVariable("status") SubmissionStatus status) {
-        Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
-        return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
+        try {
+            Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
+            return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
     }
 
     @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")
@@ -78,8 +82,12 @@ public class AdminController extends BaseController {
     public ResponseEntity<?> markSubmissionProcessStepAndStatus(@PathVariable("submissionId") String submissionId,
                                                                 @PathVariable("step") SubmissionProcessingStep step,
                                                                 @PathVariable("status") SubmissionProcessingStatus status) {
-        SubmissionProcessing submissionProc = this.submissionService.markSubmissionProcessStepAndStatus(submissionId, step, status);
-        return new ResponseEntity<>(submissionProc, HttpStatus.OK);
+        try {
+            SubmissionProcessing submissionProc = this.submissionService.markSubmissionProcessStepAndStatus(submissionId, step, status);
+            return new ResponseEntity<>(submissionProc, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
     }
 
     @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status")

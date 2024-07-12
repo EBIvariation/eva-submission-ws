@@ -1,7 +1,9 @@
 package uk.ac.ebi.eva.submission.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jetbrains.annotations.NotNull;
+import org.hibernate.envers.AuditReader;
+import org.hibernate.envers.AuditReaderFactory;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +37,7 @@ import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 import uk.ac.ebi.eva.submission.util.MailSender;
 
+import javax.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -51,7 +54,9 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -63,6 +68,9 @@ public class SubmissionWSIntegrationTest {
 
     @Value("${controller.auth.admin.password}")
     private String TEST_ADMIN_PASSWORD;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Autowired
     private MockMvc mvc;
@@ -253,7 +261,7 @@ public class SubmissionWSIntegrationTest {
         mvc.perform(get("/v1/submission/" + submissionId + "/status")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpectAll(status().isNotFound(), content().string("Submission with Id test123 does not exist"));
+                .andExpectAll(status().isNotFound(), content().string("Submission with id " + submissionId + " does not exist"));
     }
 
     @Test
@@ -335,7 +343,7 @@ public class SubmissionWSIntegrationTest {
                         .content(metadataJson)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
-                .andExpect(content().string("Given submission with id " + submissionId + " does not exist"));
+                .andExpect(content().string("Submission with id " + submissionId + " does not exist"));
     }
 
     @Test
@@ -375,6 +383,23 @@ public class SubmissionWSIntegrationTest {
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionStatusSubmissionDoesNotExist() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId = "test-wrong-submission-id";
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/status/COMPLETED")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Submission with id " + submissionId + " does not exist"));
     }
 
     @Test
@@ -447,6 +472,98 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
         assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.SUCCESS.toString());
         assertThat(submissionProc.getLastUpdateTime()).isNotNull();
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionProcessStepAndStatusCreateFirstEntry() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionProcessing submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId);
+        assertThat(submissionProc).isNotNull();
+        assertThat(submissionProc.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
+        assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.SUCCESS.toString());
+        assertThat(submissionProc.getLastUpdateTime()).isNotNull();
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionProcessStepAndStatusSubmissionDoesNotExist() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId = "test-wrong-submission-id";
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Submission with id " + submissionId + " does not exist"));
+    }
+
+
+    @Disabled
+    @Test
+    @Transactional
+    public void testSubmissionProcessingHistory() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+
+        String submissionId = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionProcessing submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId);
+        assertThat(submissionProc.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
+        assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.READY_FOR_PROCESSING.toString());
+
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.FAILURE)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        submissionProc = submissionProcessingRepository.findBySubmissionId(submissionId);
+        assertThat(submissionProc.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
+        assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.FAILURE.toString());
+
+        // Assert Submission Processing History Entry inserted successfully
+        AuditReader auditReader = AuditReaderFactory.get(entityManager);
+        List<Number> revisions = auditReader.getRevisions(SubmissionProcessing.class, submissionId);
+        assertThat(revisions).isNotEmpty();
+
+        Number firstRevision = revisions.get(0);
+        SubmissionProcessing auditEntryFirstRev = auditReader.find(SubmissionProcessing.class, submissionId, firstRevision);
+        assertThat(auditEntryFirstRev).isNotNull();
+        assertThat(auditEntryFirstRev.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(auditEntryFirstRev.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
+        assertThat(auditEntryFirstRev.getStatus()).isEqualTo(SubmissionProcessingStatus.READY_FOR_PROCESSING.toString());
+
+        Number secondRevision = revisions.get(1);
+        SubmissionProcessing auditEntrySecondRev = auditReader.find(SubmissionProcessing.class, submissionId, secondRevision);
+        assertThat(auditEntrySecondRev).isNotNull();
+        assertThat(auditEntrySecondRev.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(auditEntrySecondRev.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
+        assertThat(auditEntrySecondRev.getStatus()).isEqualTo(SubmissionProcessingStatus.FAILURE.toString());
     }
 
 
