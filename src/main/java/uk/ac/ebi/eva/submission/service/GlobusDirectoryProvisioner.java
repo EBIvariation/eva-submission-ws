@@ -1,5 +1,7 @@
 package uk.ac.ebi.eva.submission.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +15,8 @@ import java.util.regex.Pattern;
 
 @Service
 public class GlobusDirectoryProvisioner {
+
+    private final Logger logger = LoggerFactory.getLogger(GlobusDirectoryProvisioner.class);
 
     private final GlobusTokenRefreshService globusTokenRefreshService;
 
@@ -59,9 +63,9 @@ public class GlobusDirectoryProvisioner {
 
         // Check the response status and handle errors if necessary
         if (response.getStatusCode().is2xxSuccessful()) {
-            System.out.printf("Directory '%s' created successfully%n", directoryToCreate);
+            logger.info("Directory '%s' created successfully%n", directoryToCreate);
         } else {
-            System.out.printf("Failed to create directory '%s': %s", directoryToCreate, response.getStatusCode());
+            logger.error("Failed to create directory '%s': %s", directoryToCreate, response.getStatusCode());
         }
     }
 
@@ -83,10 +87,10 @@ public class GlobusDirectoryProvisioner {
         ResponseEntity<String> response = restTemplate.exchange(transferApiUrl, HttpMethod.GET, requestEntity, String.class);
 
         if (response.getStatusCode().is2xxSuccessful()) {
-            System.out.printf("Directory %s listed successfully%n", submissionDirPath);
+            logger.info("Directory %s listed successfully%n", submissionDirPath);
             return response.getBody();
         } else {
-            System.out.printf("Failed to retrieve directory '%s': %s", submissionDirPath, response.getStatusCode());
+            logger.error("Failed to retrieve directory '%s': %s", submissionDirPath, response.getStatusCode());
             return "";
         }
     }
