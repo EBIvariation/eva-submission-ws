@@ -16,6 +16,8 @@ public class GlobusDirectoryProvisioner {
 
     private final GlobusTokenRefreshService globusTokenRefreshService;
 
+    private final RestTemplate restTemplate;
+
     @Value("${globus.submission.endpointId}")
     private String endpointId;
 
@@ -23,15 +25,16 @@ public class GlobusDirectoryProvisioner {
             "https://transfer.api.globusonline.org/v0.10/operation/endpoint";
 
 
-    public GlobusDirectoryProvisioner(GlobusTokenRefreshService globusTokenRefreshService) {
+    public GlobusDirectoryProvisioner(GlobusTokenRefreshService globusTokenRefreshService, RestTemplate restTemplate) {
         this.globusTokenRefreshService = globusTokenRefreshService;
+        this.restTemplate = restTemplate;
     }
 
     public void createSubmissionDirectory(String directoryToCreate) {
         String fileSeparator = System.getProperty("file.separator");
         String[] directoriesToCreate = directoryToCreate.split(Pattern.quote(fileSeparator));
         StringBuilder directoryPathSoFar = new StringBuilder();
-        for (String directory: directoriesToCreate) {
+        for (String directory : directoriesToCreate) {
             directoryPathSoFar.append(directory);
             createDirectory(directoryPathSoFar.toString());
             directoryPathSoFar.append(fileSeparator);
@@ -39,14 +42,7 @@ public class GlobusDirectoryProvisioner {
     }
 
     private void createDirectory(String directoryToCreate) {
-
-        String accessToken = globusTokenRefreshService.getAccessToken();
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + accessToken);
-        headers.set("Accept", "application/json");
-        headers.set("Content-Type", "application/json");
-
+        HttpHeaders headers = getGlobusAccessHeaders();
 
         if (this.alreadyExists(headers, directoryToCreate)) {
             return;
@@ -69,17 +65,41 @@ public class GlobusDirectoryProvisioner {
         }
     }
 
-    private boolean alreadyExists(HttpHeaders headers,  String directoryName) {
-        RestTemplate restTemplate = new RestTemplate();
+    private boolean alreadyExists(HttpHeaders headers, String directoryName) {
         HttpEntity<String> entity = new HttpEntity<>("", headers);
         try {
             restTemplate.exchange(
                     GLOBUS_TRANSFER_API_BASE_URL + "/" + endpointId + "/ls?path=" + directoryName,
                     HttpMethod.GET, entity, String.class);
             return true;
-        }
-        catch (HttpClientErrorException ex) {
+        } catch (HttpClientErrorException ex) {
             return false;
         }
     }
+
+    public String listSubmittedFiles(String submissionDirPath) {
+        HttpEntity<String> requestEntity = new HttpEntity<>(getGlobusAccessHeaders());
+        String transferApiUrl = String.format("%s/%s/ls?path=%s", GLOBUS_TRANSFER_API_BASE_URL, endpointId, submissionDirPath);
+        ResponseEntity<String> response = restTemplate.exchange(transferApiUrl, HttpMethod.GET, requestEntity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            System.out.printf("Directory %s listed successfully%n", submissionDirPath);
+            return response.getBody();
+        } else {
+            System.out.printf("Failed to retrieve directory '%s': %s", submissionDirPath, response.getStatusCode());
+            return "";
+        }
+    }
+
+    private HttpHeaders getGlobusAccessHeaders() {
+        String accessToken = globusTokenRefreshService.getAccessToken();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + accessToken);
+        headers.set("Accept", "application/json");
+        headers.set("Content-Type", "application/json");
+
+        return headers;
+    }
+
+
 }

@@ -1,6 +1,8 @@
 package uk.ac.ebi.eva.submission.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.junit.jupiter.api.Disabled;
@@ -266,21 +268,63 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
-    public void testUploadMetadataJsonAndMarkUploadedd() throws Exception {
+    public void testUploadMetadataJsonAndMarkUploaded() throws Exception {
         String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
         doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
 
-        String submissionId = createNewSubmissionEntry(submissionAccount);
         String projectTitle = "test_project_title";
         String projectDescription = "test_project_description";
-        String metadataJson = "{\"project\": {\"title\":\"" + projectTitle + "\",\"description\":\"" + projectDescription + "\"}}";
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", projectTitle);
+        projectNode.put("description", projectDescription);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf.gz");
+        fileNode2.put("fileSize", 67890L);
+
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        ObjectNode dataNode2 = mapper.createObjectNode();
+        dataNode2.put("name", "file2.vcf.gz");
+        dataNode2.put("size", 67890L);
+
+        dataNodeArray.add(dataNode1);
+        dataNodeArray.add(dataNode2);
+
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
                         .headers(httpHeaders)
-                        .content(metadataJson)
+                        .content(mapper.writeValueAsString(metadataRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
@@ -298,7 +342,172 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getProjectDescription()).isEqualTo(projectDescription);
         assertThat(submissionDetails.getMetadataJson()).isNotNull();
         assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
-        assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploadErrorGettingInfoFromGlobus() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn("");
+
+        // create metadata json
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+        metadataRootNode.put("files", filesArrayNode);
+
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Failed to retrieve any file info from submission directory."));
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploadFileNotUploaded() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file10.vcf");
+        dataNode1.put("size", 12345L);
+        dataNodeArray.add(dataNode1);
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("There are some files mentioned in metadata json but not uploaded. Files : file1.vcf\n"));
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploadFileSizeMismatch() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12346L);
+        dataNodeArray.add(dataNode1);
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("There are some files mentioned in metadata json whose size does not match with the files uploaded.\n" +
+                        "file1.vcf: metadata json file size (12345) is not equal to uploaded file size (12346)\n"));
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploadFileNotUploadedAndFileSizeMismatch() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf");
+        fileNode2.put("fileSize", 67890L);
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12346L);
+        dataNodeArray.add(dataNode1);
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("There are some files mentioned in metadata json but not uploaded. Files : file2.vcf\n" +
+                        "There are some files mentioned in metadata json whose size does not match with the files uploaded.\n" +
+                        "file1.vcf: metadata json file size (12345) is not equal to uploaded file size (12346)\n"));
     }
 
     @Test
@@ -306,18 +515,49 @@ public class SubmissionWSIntegrationTest {
     public void testRequiredMetadataFieldsNotProvided() throws Exception {
         String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
         doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
 
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-        String projectDescription = "test_project_description";
-        String metadataJson = "{\"project\": {\"description\":\"" + projectDescription + "\"}}";
+        String projectTitle = "test_project_title";
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", projectTitle);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create globus list directory json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+
+        dataNodeArray.add(dataNode1);
+
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
-
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
                         .headers(httpHeaders)
-                        .content(metadataJson)
+                        .content(mapper.writeValueAsString(metadataRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Required fields project title and project description " +
