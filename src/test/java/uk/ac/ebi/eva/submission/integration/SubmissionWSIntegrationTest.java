@@ -347,6 +347,35 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
+    public void testMarkSubmissionUploadNoFileInfoInMetadatajson() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn("");
+
+        // create metadata json
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        metadataRootNode.put("files", filesArrayNode);
+
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Metadata json file does not have any file info"));
+    }
+
+
+    @Test
+    @Transactional
     public void testMarkSubmissionUploadErrorGettingInfoFromGlobus() throws Exception {
         String userToken = "webinUserToken";
         SubmissionAccount submissionAccount = getWebinUserAccount();
