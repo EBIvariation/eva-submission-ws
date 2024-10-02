@@ -93,13 +93,13 @@ public class SubmissionController extends BaseController {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
 
-        submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
         String submissionStatus = submissionService.getSubmissionStatus(submissionId);
+        System.out.println(submissionStatus);
         if (! Objects.equals(submissionStatus, SubmissionStatus.OPEN.toString())){
             return new ResponseEntity<>(
                     "Submission " + submissionId + "is not in status " + SubmissionStatus.OPEN +
-                            " so cannot be marked as " + SubmissionStatus.UPLOADED +
-                            "Current Status: " + submissionStatus,
+                            ". It cannot be marked as " + SubmissionStatus.UPLOADED +
+                            ". Current Status: " + submissionStatus,
                     HttpStatus.BAD_REQUEST);
         }
         try {

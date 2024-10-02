@@ -593,6 +593,7 @@ public class SubmissionWSIntegrationTest {
                         "could not be found in metadata json"));
     }
 
+
     @Test
     @Transactional
     public void testSubmissionDoesNotExistException() throws Exception {
@@ -613,6 +614,27 @@ public class SubmissionWSIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("Submission with id " + submissionId + " does not exist"));
+    }
+
+    @Test
+    @Transactional
+    public void testSubmissionAlreadyUploaded() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        String submissionId = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        String metadataJson = "{\"project\": {\"title\":\"" + projectTitle + "\",\"description\":\"" + projectDescription + "\"}}";
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(metadataJson)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Submission " + submissionId + "is not in status OPEN. " +
+                        "It cannot be marked as UPLOADED. Current Status: UPLOADED"));
     }
 
     @Test
