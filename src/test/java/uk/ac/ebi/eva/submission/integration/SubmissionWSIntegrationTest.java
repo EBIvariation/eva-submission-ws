@@ -633,7 +633,7 @@ public class SubmissionWSIntegrationTest {
                         .content(metadataJson)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Submission " + submissionId + "is not in status OPEN. " +
+                .andExpect(content().string("Submission " + submissionId + " is not in status OPEN. " +
                         "It cannot be marked as UPLOADED. Current Status: UPLOADED"));
     }
 
