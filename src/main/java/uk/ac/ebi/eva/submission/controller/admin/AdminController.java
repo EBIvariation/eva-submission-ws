@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
+import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
@@ -54,6 +55,21 @@ public class AdminController extends BaseController {
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
+    }
+
+    @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status")
+    @Parameters({
+            @Parameter(name="step", description = "The processing step of the submission.",
+                    required = true, in= ParameterIn.PATH),
+            @Parameter(name="status", description = "The status of the submission processing step.",
+                    required = true, in= ParameterIn.PATH)
+    })
+
+    @GetMapping("submission/{submissionId}")
+    public ResponseEntity<?> getSubmissionsDetail(
+            @PathVariable("submissionId") String submissionId) {
+        SubmissionDetails submissionDetail = submissionService.getSubmissionDetail(submissionId);
+        return new ResponseEntity<>(submissionDetail, HttpStatus.OK);
     }
 
     @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")

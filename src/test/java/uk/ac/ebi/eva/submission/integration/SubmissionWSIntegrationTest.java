@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -361,8 +363,6 @@ public class SubmissionWSIntegrationTest {
         ObjectNode metadataRootNode = mapper.createObjectNode();
         ArrayNode filesArrayNode = mapper.createArrayNode();
         metadataRootNode.put("files", filesArrayNode);
-
-
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
@@ -806,6 +806,31 @@ public class SubmissionWSIntegrationTest {
     }
 
 
+    @Test
+    @Transactional
+    public void testGetSubmissionDetail() throws Exception {
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+
+        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode metadataRootNode = createNewMetadataJSON(mapper, projectTitle, projectDescription);
+
+        createNewSubmissionDetailEntry(submissionId1, projectTitle, projectDescription, metadataRootNode);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submission/" + submissionId1 )
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("submissionId").value(submissionId1))
+                .andExpect(jsonPath("metadataJson.project.title").value(projectTitle))
+                .andExpect(jsonPath("metadataJson.project.description").value(projectDescription));
+    }
+
     @Disabled
     @Test
     @Transactional
@@ -814,7 +839,6 @@ public class SubmissionWSIntegrationTest {
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
 
         String submissionId = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
-
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
@@ -894,5 +918,57 @@ public class SubmissionWSIntegrationTest {
         submissionProcessing.setStatus(status.toString());
         submissionProcessing.setPriority(5);
         submissionProcessingRepository.save(submissionProcessing);
+    }
+
+    private void createNewSubmissionDetailEntry(String submissionId, String projectTitle, String projectDescription,
+                                                  JsonNode metadataJson) {
+        SubmissionDetails submissionDetail = new SubmissionDetails(submissionId);
+        submissionDetail.setProjectTitle(projectTitle);
+        submissionDetail.setProjectDescription(projectDescription);
+        submissionDetail.setMetadataJson(metadataJson);
+        submissionDetailsRepository.save(submissionDetail);
+    }
+
+    private JsonNode createNewMetadataJSON(ObjectMapper mapper, String projectTitle, String projectDescription) {
+
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", projectTitle);
+        projectNode.put("description", projectDescription);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf.gz");
+        fileNode2.put("fileSize", 67890L);
+
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        ObjectNode dataNode2 = mapper.createObjectNode();
+        dataNode2.put("name", "file2.vcf.gz");
+        dataNode2.put("size", 67890L);
+
+        dataNodeArray.add(dataNode1);
+        dataNodeArray.add(dataNode2);
+
+        globusRootNode.put("DATA", dataNodeArray);
+        return metadataRootNode;
+
     }
 }

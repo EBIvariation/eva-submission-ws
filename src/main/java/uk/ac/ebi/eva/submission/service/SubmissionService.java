@@ -246,5 +246,9 @@ public class SubmissionService {
         return submissionProcessingRepository.save(submissionProc);
     }
 
+    public SubmissionDetails getSubmissionDetail(String submissionId){
+        return submissionDetailsRepository.findBySubmissionId(submissionId);
+    }
+
 
 }
