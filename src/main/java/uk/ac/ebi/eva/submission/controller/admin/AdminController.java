@@ -66,7 +66,7 @@ public class AdminController extends BaseController {
     })
 
     @GetMapping("submission/{submissionId}")
-    public ResponseEntity<?> getSubmissionsDetail(
+    public ResponseEntity<?> getSubmissionDetails(
             @PathVariable("submissionId") String submissionId) {
         SubmissionDetails submissionDetail = submissionService.getSubmissionDetail(submissionId);
         return new ResponseEntity<>(submissionDetail, HttpStatus.OK);

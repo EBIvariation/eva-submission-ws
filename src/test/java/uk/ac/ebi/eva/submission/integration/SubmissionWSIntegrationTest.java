@@ -930,8 +930,6 @@ public class SubmissionWSIntegrationTest {
     }
 
     private JsonNode createNewMetadataJSON(ObjectMapper mapper, String projectTitle, String projectDescription) {
-
-
         // create metadata json
         ObjectNode metadataRootNode = mapper.createObjectNode();
 
