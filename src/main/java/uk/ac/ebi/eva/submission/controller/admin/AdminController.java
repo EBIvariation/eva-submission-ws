@@ -57,19 +57,20 @@ public class AdminController extends BaseController {
         }
     }
 
-    @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status")
+    @Operation(summary = "This endpoint retrieves detail of submission including the metadata json")
     @Parameters({
-            @Parameter(name="step", description = "The processing step of the submission.",
-                    required = true, in= ParameterIn.PATH),
-            @Parameter(name="status", description = "The status of the submission processing step.",
+            @Parameter(name="submissionId", description = "Id of the submission whose status needs to be updated",
                     required = true, in= ParameterIn.PATH)
     })
-
     @GetMapping("submission/{submissionId}")
     public ResponseEntity<?> getSubmissionDetails(
             @PathVariable("submissionId") String submissionId) {
-        SubmissionDetails submissionDetail = submissionService.getSubmissionDetail(submissionId);
-        return new ResponseEntity<>(submissionDetail, HttpStatus.OK);
+        try {
+            SubmissionDetails submissionDetail = submissionService.getSubmissionDetail(submissionId);
+            return new ResponseEntity<>(submissionDetail, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
     }
 
     @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")
