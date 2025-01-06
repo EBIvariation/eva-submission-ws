@@ -59,7 +59,7 @@ public class AdminController extends BaseController {
 
     @Operation(summary = "This endpoint retrieves detail of submission including the metadata json")
     @Parameters({
-            @Parameter(name="submissionId", description = "Id of the submission whose status needs to be updated",
+            @Parameter(name="submissionId", description = "Id of the submission to fetch",
                     required = true, in= ParameterIn.PATH)
     })
     @GetMapping("submission/{submissionId}")
