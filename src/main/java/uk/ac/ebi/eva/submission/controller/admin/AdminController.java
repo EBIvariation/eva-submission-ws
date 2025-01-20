@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
+import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
@@ -51,6 +52,22 @@ public class AdminController extends BaseController {
         try {
             Submission submission = this.submissionService.markSubmissionStatus(submissionId, status);
             return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @Operation(summary = "This endpoint retrieves detail of submission including the metadata json")
+    @Parameters({
+            @Parameter(name="submissionId", description = "Id of the submission to fetch",
+                    required = true, in= ParameterIn.PATH)
+    })
+    @GetMapping("submission/{submissionId}")
+    public ResponseEntity<?> getSubmissionDetails(
+            @PathVariable("submissionId") String submissionId) {
+        try {
+            SubmissionDetails submissionDetail = submissionService.getSubmissionDetail(submissionId);
+            return new ResponseEntity<>(submissionDetail, HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
