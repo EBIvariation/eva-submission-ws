@@ -72,7 +72,25 @@ public class EmailNotificationHelperTest {
     }
 
     @Test
-    public void testGetNotificationFooter(){
+    public void testGetTextForEVAHelpdeskSubmissionUploaded() {
+        String expectedText = "Dear EVA Helpdesk," +
+                "<br /><br />" +
+                "The user has uploaded a new Submission: " +
+                "<br /><br />" +
+                "submission ID: submission-12345<br />" +
+                "Project Title: Test Project Title<br /><br /><br />" +
+                "<span style=\"font-size:10px;\">Please don't reply to this email.</span><br />" +
+                "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
+                "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> </span><br />" +
+                "<span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
+        String actualText = emailNotificationHelper.getTextForEVAHelpdeskSubmissionUploaded("submission-12345",
+                "Test Project Title");
+
+        assertEquals(expectedText, actualText);
+    }
+
+    @Test
+    public void testGetNotificationFooter() {
         String expectedFooter = "<span style=\"font-size:10px;\">Please don't reply to this email.</span><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +

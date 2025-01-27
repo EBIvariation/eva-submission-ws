@@ -6,7 +6,7 @@ import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 
 @Component
 public class EmailNotificationHelper {
-    private static final String EVA_HELPDESK_EMAIL = "eva-helpdesk@ebi.ac.uk";
+    public static final String EVA_HELPDESK_EMAIL = "eva-helpdesk@ebi.ac.uk";
 
     public String getSubjectForSubmissionStatusUpdate(SubmissionStatus submissionStatus, boolean success) {
         String result = (success == true) ? "SUCCESS" : "FAILED";
@@ -14,7 +14,7 @@ public class EmailNotificationHelper {
     }
 
     public String getTextForSubmissionStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
-                                       SubmissionStatus submissionStatus, boolean success) {
+                                                   SubmissionStatus submissionStatus, boolean success) {
         String result;
         String resultColor;
         if (success) {
@@ -36,6 +36,23 @@ public class EmailNotificationHelper {
                 .addLineBreak()
                 .addText("Result: ")
                 .addBoldTextWithColor(result, resultColor)
+                .addGap(2)
+                .build();
+
+        notificationText += getNotificationFooter();
+
+        return notificationText;
+    }
+
+    public String getTextForEVAHelpdeskSubmissionUploaded(String submissionId, String projectTitle) {
+        String notificationText = new HTMLHelper()
+                .addText("Dear EVA Helpdesk,")
+                .addGap(1)
+                .addText("The user has uploaded a new Submission: ")
+                .addGap(1)
+                .addText("submission ID: " + submissionId)
+                .addLineBreak()
+                .addText("Project Title: " + projectTitle)
                 .addGap(2)
                 .build();
 
