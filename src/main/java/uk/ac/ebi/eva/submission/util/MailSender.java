@@ -14,7 +14,7 @@ import javax.mail.internet.MimeMessage;
 public class MailSender {
     private final Logger logger = LoggerFactory.getLogger(MailSender.class);
     private final JavaMailSender javaMailSender;
-    private final String DEFAULT_SENDER = "eva_submissions@ebi.ac.uk";
+    private final String DEFAULT_SENDER = "eva-noreply@ebi.ac.uk";
 
     @Autowired
     MailSender(JavaMailSender javaMailSender) {
