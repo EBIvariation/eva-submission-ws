@@ -94,7 +94,7 @@ public class SubmissionController extends BaseController {
         }
 
         String submissionStatus = submissionService.getSubmissionStatus(submissionId);
-        if (! Objects.equals(submissionStatus, SubmissionStatus.OPEN.toString())){
+        if (!Objects.equals(submissionStatus, SubmissionStatus.OPEN.toString())) {
             return new ResponseEntity<>(
                     "Submission " + submissionId + " is not in status " + SubmissionStatus.OPEN +
                             ". It cannot be marked as " + SubmissionStatus.UPLOADED +
@@ -104,11 +104,13 @@ public class SubmissionController extends BaseController {
         try {
             submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
             Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
-            submissionService.sendMailNotificationForStatusUpdate(submissionAccount, submissionId, SubmissionStatus.UPLOADED, true);
+            String projectTitle = metadataJson.get("project").get("title").asText();
+            submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
+                    SubmissionStatus.UPLOADED, true);
+            submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
+                    projectTitle);
             return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
-        } catch (RequiredFieldsMissingException ex) {
-            return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
-        } catch (MetadataFileInfoMismatchException ex) {
+        } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }

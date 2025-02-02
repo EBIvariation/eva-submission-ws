@@ -210,12 +210,20 @@ public class SubmissionService {
         }
     }
 
-    public void sendMailNotificationForStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
-                                                    SubmissionStatus submissionStatus, boolean success) {
+    public void sendMailNotificationToUserForStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
+                                                          String projectTitle, SubmissionStatus submissionStatus, boolean success) {
         String sendTo = submissionAccount.getPrimaryEmail();
         String subject = emailHelper.getSubjectForSubmissionStatusUpdate(submissionStatus, success);
-        String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, submissionStatus, success);
+        String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, projectTitle,
+                submissionStatus, success);
         mailSender.sendEmail(sendTo, subject, body);
+    }
+
+    public void sendMailNotificationToEVAHelpdeskForSubmissionUploaded(SubmissionAccount submissionAccount,
+                                                                       String submissionId, String projectTitle) {
+        String subject = String.format("New Submission Uploaded. Submission Id - (%s)", submissionId);
+        String body = emailHelper.getTextForEVAHelpdeskSubmissionUploaded(submissionAccount, submissionId, projectTitle);
+        mailSender.sendEmail(EmailNotificationHelper.EVA_HELPDESK_EMAIL, subject, body);
     }
 
     public List<Submission> getSubmissionsByStatus(SubmissionStatus status) {

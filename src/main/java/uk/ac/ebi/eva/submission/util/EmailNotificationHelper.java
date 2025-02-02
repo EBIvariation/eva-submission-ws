@@ -6,15 +6,15 @@ import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 
 @Component
 public class EmailNotificationHelper {
-    private static final String EVA_HELPDESK_EMAIL = "eva-helpdesk@ebi.ac.uk";
+    public static final String EVA_HELPDESK_EMAIL = "eva-helpdesk@ebi.ac.uk";
 
     public String getSubjectForSubmissionStatusUpdate(SubmissionStatus submissionStatus, boolean success) {
-        String result = (success == true) ? "SUCCESS" : "FAILED";
+        String result = success ? "SUCCESS" : "FAILED";
         return String.format("EVA Submission Update: %s %s", submissionStatus, result);
     }
 
     public String getTextForSubmissionStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
-                                       SubmissionStatus submissionStatus, boolean success) {
+                                                   String projectTitle, SubmissionStatus submissionStatus, boolean success) {
         String result;
         String resultColor;
         if (success) {
@@ -30,12 +30,36 @@ public class EmailNotificationHelper {
                 .addGap(1)
                 .addText("Here is the update for your submission: ")
                 .addGap(1)
-                .addText("submission ID: " + submissionId)
+                .addText("Submission ID: " + submissionId)
+                .addLineBreak()
+                .addText("Project Title: " + projectTitle)
                 .addLineBreak()
                 .addText("Submission Status: " + submissionStatus)
                 .addLineBreak()
                 .addText("Result: ")
                 .addBoldTextWithColor(result, resultColor)
+                .addGap(2)
+                .build();
+
+        notificationText += getNotificationFooter();
+
+        return notificationText;
+    }
+
+    public String getTextForEVAHelpdeskSubmissionUploaded(SubmissionAccount submissionAccount, String submissionId,
+                                                          String projectTitle) {
+        String notificationText = new HTMLHelper()
+                .addText("Dear EVA Helpdesk,")
+                .addGap(1)
+                .addText("The user has uploaded a new Submission: ")
+                .addGap(1)
+                .addText("submission ID: " + submissionId)
+                .addLineBreak()
+                .addText("Project Title: " + projectTitle)
+                .addLineBreak()
+                .addText("User Name: " + submissionAccount.getFirstName() + " " + submissionAccount.getLastName())
+                .addLineBreak()
+                .addText("User Email: " + submissionAccount.getPrimaryEmail())
                 .addGap(2)
                 .build();
 

@@ -33,7 +33,8 @@ public class EmailNotificationHelperTest {
                 "<br /><br />" +
                 "Here is the update for your submission: " +
                 "<br /><br />" +
-                "submission ID: 12345<br />" +
+                "Submission ID: submission12345<br />" +
+                "Project Title: project123<br />" +
                 "Submission Status: UPLOADED<br />" +
                 "Result: <b><span style=\"color:green;\">SUCCESS</span></b>" +
                 "<br /><br /><br />" +
@@ -43,7 +44,7 @@ public class EmailNotificationHelperTest {
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "12345", SubmissionStatus.UPLOADED, true);
+                "submission12345", "project123", SubmissionStatus.UPLOADED, true);
 
         assertEquals(expectedText, actualText);
     }
@@ -56,7 +57,8 @@ public class EmailNotificationHelperTest {
                 "<br /><br />" +
                 "Here is the update for your submission: " +
                 "<br /><br />" +
-                "submission ID: 12345<br />" +
+                "Submission ID: 12345<br />" +
+                "Project Title: project123<br />" +
                 "Submission Status: UPLOADED<br />" +
                 "Result: <b><span style=\"color:red;\">FAILED</span></b>" +
                 "<br /><br /><br />" +
@@ -66,13 +68,36 @@ public class EmailNotificationHelperTest {
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "12345", SubmissionStatus.UPLOADED, false);
+                "12345", "project123", SubmissionStatus.UPLOADED, false);
 
         assertEquals(expectedText, actualText);
     }
 
     @Test
-    public void testGetNotificationFooter(){
+    public void testGetTextForEVAHelpdeskSubmissionUploaded() {
+        SubmissionAccount submissionAccount = new SubmissionAccount("johndoe@example.com",
+                LoginMethod.WEBIN.toString(), "John", "Doe", "john@example.com");
+        String expectedText = "Dear EVA Helpdesk," +
+                "<br /><br />" +
+                "The user has uploaded a new Submission: " +
+                "<br /><br />" +
+                "submission ID: submission-12345<br />" +
+                "Project Title: Test Project Title<br />" +
+                "User Name: John Doe<br />" +
+                "User Email: john@example.com" +
+                "<br /><br /><br />" +
+                "<span style=\"font-size:10px;\">Please don't reply to this email.</span><br />" +
+                "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
+                "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> </span><br />" +
+                "<span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
+        String actualText = emailNotificationHelper.getTextForEVAHelpdeskSubmissionUploaded(submissionAccount,
+                "submission-12345", "Test Project Title");
+
+        assertEquals(expectedText, actualText);
+    }
+
+    @Test
+    public void testGetNotificationFooter() {
         String expectedFooter = "<span style=\"font-size:10px;\">Please don't reply to this email.</span><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
