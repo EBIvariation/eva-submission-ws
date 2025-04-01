@@ -63,9 +63,9 @@ public class GlobusDirectoryProvisioner {
 
         // Check the response status and handle errors if necessary
         if (response.getStatusCode().is2xxSuccessful()) {
-            logger.info("Directory '%s' created successfully%n", directoryToCreate);
+            logger.info("Directory '{}' created successfully", directoryToCreate);
         } else {
-            logger.error("Failed to create directory '%s': %s", directoryToCreate, response.getStatusCode());
+            logger.error("Failed to create directory '{}': {}", directoryToCreate, response.getStatusCode());
         }
     }
 
@@ -87,10 +87,10 @@ public class GlobusDirectoryProvisioner {
         ResponseEntity<String> response = restTemplate.exchange(transferApiUrl, HttpMethod.GET, requestEntity, String.class);
 
         if (response.getStatusCode().is2xxSuccessful()) {
-            logger.info("Directory %s listed successfully%n", submissionDirPath);
+            logger.info("Directory {} listed successfully", submissionDirPath);
             return response.getBody();
         } else {
-            logger.error("Failed to retrieve directory '%s': %s", submissionDirPath, response.getStatusCode());
+            logger.error("Failed to retrieve directory '{}': {}", submissionDirPath, response.getStatusCode());
             return "";
         }
     }

@@ -11,7 +11,6 @@ import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
-import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
@@ -156,17 +155,12 @@ public class SubmissionService {
 
     public Submission uploadMetadataJsonAndMarkUploaded(String submissionId, JsonNode metadataJson) {
         SubmissionDetails submissionDetails = new SubmissionDetails(submissionId);
-        try {
-            JsonNode project = metadataJson.get(PROJECT);
-            String projectTitle = project.get(TITLE).asText();
-            String projectDescription = project.get(DESCRIPTION).asText();
+        JsonNode project = metadataJson.get(PROJECT);
+        String projectTitle = project.get(TITLE).asText();
+        String projectDescription = project.get(DESCRIPTION).asText();
 
-            submissionDetails.setProjectTitle(projectTitle);
-            submissionDetails.setProjectDescription(projectDescription);
-        } catch (Exception e) {
-            throw new RequiredFieldsMissingException("Required fields project title and project description " +
-                    "could not be found in metadata json");
-        }
+        submissionDetails.setProjectTitle(projectTitle);
+        submissionDetails.setProjectDescription(projectDescription);
 
         submissionDetails.setMetadataJson(metadataJson);
         submissionDetailsRepository.save(submissionDetails);

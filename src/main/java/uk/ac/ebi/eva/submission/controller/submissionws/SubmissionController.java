@@ -1,6 +1,7 @@
 package uk.ac.ebi.eva.submission.controller.submissionws;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -32,6 +33,12 @@ import java.util.Objects;
 @RestController
 @RequestMapping("/v1")
 public class SubmissionController extends BaseController {
+    private static final String PROJECT = "project";
+    private static final String TITLE = "title";
+    private static final int TITLE_LENGTH = 500;
+    private static final String DESCRIPTION = "description";
+    private static final int DESCRIPTION_LENGTH = 5000;
+
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
     private final LsriTokenService lsriTokenService;
@@ -103,8 +110,21 @@ public class SubmissionController extends BaseController {
         }
         try {
             submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
+            try {
+                ObjectNode projectNode = (ObjectNode) metadataJson.get(PROJECT);
+                String projectTitleOrg = projectNode.get(TITLE).asText();
+                String projectDescriptionOrg = projectNode.get(DESCRIPTION).asText();
+                projectNode.put(TITLE, projectTitleOrg.substring(0, Math.min(projectTitleOrg.length(), TITLE_LENGTH)));
+                projectNode.put(DESCRIPTION, projectDescriptionOrg.substring(0, Math.min(projectDescriptionOrg.length(),
+                        DESCRIPTION_LENGTH)));
+            } catch (Exception e) {
+                throw new RequiredFieldsMissingException("Required fields project title and project description " +
+                        "could not be found in metadata json");
+            }
+
             Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
-            String projectTitle = metadataJson.get("project").get("title").asText();
+
+            String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
             submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
                     SubmissionStatus.UPLOADED, true);
             submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,

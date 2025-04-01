@@ -23,10 +23,10 @@ public class SubmissionDetails {
     @PrimaryKeyJoinColumn(name = "submission_id", referencedColumnName = "submission_id")
     private Submission submission;
 
-    @Column(nullable = false, name = "project_title")
+    @Column(nullable = false, name = "project_title", length = 500)
     private String projectTitle;
 
-    @Column(nullable = false, name = "project_description")
+    @Column(nullable = false, name = "project_description", length = 5000)
     private String projectDescription;
 
     @Column(columnDefinition = "jsonb", name = "metadata_json", nullable = false)
