@@ -15,6 +15,9 @@ import javax.persistence.Table;
 @Table(schema = "eva_submissions", name = "submission_details")
 @TypeDef(typeClass = JsonType.class, defaultForType = JsonNode.class)
 public class SubmissionDetails {
+    public static final int PROJECT_TITLE_LENGTH = 500;
+    public static final int PROJECT_DESCRIPTION_LENGTH = 5000;
+
     @Id
     @Column(name = "submission_id")
     private String submissionId;
@@ -23,10 +26,10 @@ public class SubmissionDetails {
     @PrimaryKeyJoinColumn(name = "submission_id", referencedColumnName = "submission_id")
     private Submission submission;
 
-    @Column(nullable = false, name = "project_title", length = 500)
+    @Column(nullable = false, name = "project_title", length = PROJECT_TITLE_LENGTH)
     private String projectTitle;
 
-    @Column(nullable = false, name = "project_description", length = 5000)
+    @Column(nullable = false, name = "project_description", length = PROJECT_DESCRIPTION_LENGTH)
     private String projectDescription;
 
     @Column(columnDefinition = "jsonb", name = "metadata_json", nullable = false)

@@ -30,14 +30,15 @@ import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
 import java.util.Objects;
 
+import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_DESCRIPTION_LENGTH;
+import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_TITLE_LENGTH;
+
 @RestController
 @RequestMapping("/v1")
 public class SubmissionController extends BaseController {
     private static final String PROJECT = "project";
     private static final String TITLE = "title";
-    private static final int TITLE_LENGTH = 500;
     private static final String DESCRIPTION = "description";
-    private static final int DESCRIPTION_LENGTH = 5000;
 
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
@@ -114,9 +115,9 @@ public class SubmissionController extends BaseController {
                 ObjectNode projectNode = (ObjectNode) metadataJson.get(PROJECT);
                 String projectTitleOrg = projectNode.get(TITLE).asText();
                 String projectDescriptionOrg = projectNode.get(DESCRIPTION).asText();
-                projectNode.put(TITLE, projectTitleOrg.substring(0, Math.min(projectTitleOrg.length(), TITLE_LENGTH)));
+                projectNode.put(TITLE, projectTitleOrg.substring(0, Math.min(projectTitleOrg.length(), PROJECT_TITLE_LENGTH)));
                 projectNode.put(DESCRIPTION, projectDescriptionOrg.substring(0, Math.min(projectDescriptionOrg.length(),
-                        DESCRIPTION_LENGTH)));
+                        PROJECT_DESCRIPTION_LENGTH)));
             } catch (Exception e) {
                 throw new RequiredFieldsMissingException("Required fields project title and project description " +
                         "could not be found in metadata json");
