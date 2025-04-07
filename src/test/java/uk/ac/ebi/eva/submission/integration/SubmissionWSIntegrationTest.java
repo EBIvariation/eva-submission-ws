@@ -18,7 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -47,10 +46,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -345,6 +347,94 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getMetadataJson()).isNotNull();
         assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
         assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
+    }
+
+    @Test
+    @Transactional
+    public void testUploadMetadataJsonAndMarkUploadedForLargeProjectTitleAndDescription() throws Exception {
+        String userToken = "webinUserToken";
+        SubmissionAccount submissionAccount = getWebinUserAccount();
+        String submissionId = createNewSubmissionEntry(submissionAccount);
+
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
+
+        String projectTitle = buildLargeStringOfLength(600);
+        String projectDescription = buildLargeStringOfLength(5500);
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", projectTitle);
+        projectNode.put("description", projectDescription);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf.gz");
+        fileNode2.put("fileSize", 67890L);
+
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        ObjectNode dataNode2 = mapper.createObjectNode();
+        dataNode2.put("name", "file2.vcf.gz");
+        dataNode2.put("size", 67890L);
+
+        dataNodeArray.add(dataNode1);
+        dataNodeArray.add(dataNode2);
+
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        assertEquals(metadataRootNode.get("project").get("title").asText().length(), 600);
+        assertEquals(metadataRootNode.get("project").get("description").asText().length(), 5500);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
+        assertThat(submission.getUploadedTime()).isNotNull();
+        assertThat(submission.getCompletionTime()).isNull();
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getSubmissionId()).isEqualTo(submissionId);
+        assertEquals(500, submissionDetails.getProjectTitle().length());
+        assertEquals(5000, submissionDetails.getProjectDescription().length());
+        assertThat(submissionDetails.getMetadataJson()).isNotNull();
+        assertEquals(500, submissionDetails.getMetadataJson().get("project").get("title").asText().length());
+        assertEquals(5000, submissionDetails.getMetadataJson().get("project").get("description").asText().length());
+    }
+
+    private String buildLargeStringOfLength(int length) {
+        return IntStream.range(0, length)
+                .mapToObj(i -> "A")
+                .collect(Collectors.joining());
     }
 
     @Test
@@ -822,7 +912,7 @@ public class SubmissionWSIntegrationTest {
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-        mvc.perform(get("/v1/admin/submission/" + submissionId1 )
+        mvc.perform(get("/v1/admin/submission/" + submissionId1)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
