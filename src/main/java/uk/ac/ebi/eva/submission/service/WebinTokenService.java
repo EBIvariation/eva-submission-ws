@@ -44,7 +44,8 @@ public class WebinTokenService {
                 .filter(email -> !email.equals(mainContact.getEmailAddress()))
                 .collect(Collectors.toList());
 
-        return new SubmissionAccount(accountId, LoginMethod.WEBIN.getLoginType(), mainContact.getFirstName(),
+        String firstNameOrConsortiumName = mainContact.getFirstName() != null ? mainContact.getFirstName() : mainContact.getConsortium();
+        return new SubmissionAccount(accountId, LoginMethod.WEBIN.getLoginType(), firstNameOrConsortiumName,
                 mainContact.getSurname(), mainContact.getEmailAddress(), secondaryEmails);
     }
 }

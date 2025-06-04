@@ -4,6 +4,8 @@ import org.springframework.stereotype.Component;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 
+import static uk.ac.ebi.eva.submission.util.Utils.getUserNameFromSubmissionAccountOrDefault;
+
 @Component
 public class EmailNotificationHelper {
     public static final String EVA_HELPDESK_EMAIL = "eva-helpdesk@ebi.ac.uk";
@@ -26,7 +28,7 @@ public class EmailNotificationHelper {
         }
 
         String notificationText = new HTMLHelper()
-                .addText("Dear " + submissionAccount.getFirstName() + ",")
+                .addText("Dear " + getUserNameFromSubmissionAccountOrDefault(submissionAccount, "User") + ",")
                 .addGap(1)
                 .addText("Here is the update for your submission: ")
                 .addGap(1)
@@ -57,7 +59,7 @@ public class EmailNotificationHelper {
                 .addLineBreak()
                 .addText("Project Title: " + projectTitle)
                 .addLineBreak()
-                .addText("User Name: " + submissionAccount.getFirstName() + " " + submissionAccount.getLastName())
+                .addText("User Name: " + getUserNameFromSubmissionAccountOrDefault(submissionAccount, "NA"))
                 .addLineBreak()
                 .addText("User Email: " + submissionAccount.getPrimaryEmail())
                 .addGap(2)

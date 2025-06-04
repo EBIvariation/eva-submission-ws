@@ -36,11 +36,11 @@ public class SubmissionAccount {
     private List<String> secondaryEmails;
 
     @NonNull
-    @Column(nullable = false, name = "first_name")
+    @Column(name = "first_name")
     private String firstName;
 
     @NonNull
-    @Column(nullable = false, name = "last_name")
+    @Column(name = "last_name")
     private String lastName;
 
     public SubmissionAccount() {
@@ -104,21 +104,19 @@ public class SubmissionAccount {
         this.secondaryEmails = secondaryEmails;
     }
 
-    @NonNull
     public String getFirstName() {
         return firstName;
     }
 
-    public void setFirstName(@NonNull String firstName) {
+    public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
 
-    @NonNull
     public String getLastName() {
         return lastName;
     }
 
-    public void setLastName(@NonNull String lastName) {
+    public void setLastName(String lastName) {
         this.lastName = lastName;
     }
 
