@@ -36,7 +36,8 @@ public class SubmissionControllerTest {
         String userId = "lsriuser@lsri.com";
         String loginType = LoginMethod.LSRI.getLoginType();
         String token = "lsriUserToken";
-        SubmissionAccount account = new SubmissionAccount(userId, loginType);
+        SubmissionAccount account = new SubmissionAccount(userId, loginType, "test_first_name", "test_last_name",
+                "test_primary_email@email.com");
         when(webinTokenService.getWebinUserAccountFromToken(token)).thenReturn(null);
         when(lsriTokenService.getLsriUserAccountFromToken(token)).thenReturn(account);
 
@@ -50,7 +51,8 @@ public class SubmissionControllerTest {
         String userId = "lsriuser@lsri.com";
         String loginType = LoginMethod.WEBIN.getLoginType();
         String token = "lsriUserToken";
-        SubmissionAccount account = new SubmissionAccount(userId, loginType);
+        SubmissionAccount account = new SubmissionAccount(userId, loginType, "test_first_name",
+                "test_last_name", "testprimary_email@email.com");
         when(webinTokenService.getWebinUserAccountFromToken(token)).thenReturn(account);
 
         SubmissionAccount submissionAccount = submissionController.getSubmissionAccount(token);

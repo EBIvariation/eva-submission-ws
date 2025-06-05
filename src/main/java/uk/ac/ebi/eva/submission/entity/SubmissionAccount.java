@@ -47,18 +47,12 @@ public class SubmissionAccount {
 
     }
 
-    public SubmissionAccount(String userId, String loginType) {
-        this.id = createId(userId, loginType);
-        this.userId = userId;
-        this.loginType = loginType;
-    }
-
     public SubmissionAccount(String userId, String loginType, String firstName, String lastName, String primaryEmail) {
         this.id = createId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
-        this.firstName = firstName;
-        this.lastName = lastName;
+        this.firstName = firstName != null ? firstName : "";
+        this.lastName = lastName != null ? lastName : "";
         this.primaryEmail = primaryEmail;
     }
 
@@ -67,8 +61,8 @@ public class SubmissionAccount {
         this.id = createId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
-        this.firstName = firstName;
-        this.lastName = lastName;
+        this.firstName = firstName != null ? firstName : "";
+        this.lastName = lastName != null ? lastName : "";
         this.primaryEmail = primaryEmail;
         this.secondaryEmails = secondaryEmails;
     }
@@ -109,7 +103,7 @@ public class SubmissionAccount {
     }
 
     public void setFirstName(String firstName) {
-        this.firstName = firstName;
+        this.firstName = firstName != null ? firstName : "";
     }
 
     public String getLastName() {
@@ -117,7 +111,7 @@ public class SubmissionAccount {
     }
 
     public void setLastName(String lastName) {
-        this.lastName = lastName;
+        this.lastName = lastName != null ? lastName : "";
     }
 
     private String createId(String userId, String loginType) {

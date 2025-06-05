@@ -45,7 +45,8 @@ public class WebinTokenService {
                 .collect(Collectors.toList());
 
         String firstNameOrConsortiumName = mainContact.getFirstName() != null ? mainContact.getFirstName() : mainContact.getConsortium();
+        String lastName = mainContact.getSurname() != null ? mainContact.getSurname() : "";
         return new SubmissionAccount(accountId, LoginMethod.WEBIN.getLoginType(), firstNameOrConsortiumName,
-                mainContact.getSurname(), mainContact.getEmailAddress(), secondaryEmails);
+                lastName, mainContact.getEmailAddress(), secondaryEmails);
     }
 }

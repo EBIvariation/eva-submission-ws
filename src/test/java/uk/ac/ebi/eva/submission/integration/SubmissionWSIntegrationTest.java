@@ -245,10 +245,8 @@ public class SubmissionWSIntegrationTest {
         assertThat(userAccountInDB.getLastName()).isEqualTo(orgUserAccount.getLastName());
 
         // update user's primary email, first name and last name
-        SubmissionAccount otherUserAccount = new SubmissionAccount(orgUserAccount.getUserId(), orgUserAccount.getLoginType());
-        otherUserAccount.setPrimaryEmail("other_primary_email");
-        otherUserAccount.setFirstName("other_first_name");
-        otherUserAccount.setLastName("other_last_name");
+        SubmissionAccount otherUserAccount = new SubmissionAccount(orgUserAccount.getUserId(), orgUserAccount.getLoginType(),
+                "other_first_name", "other_last_name", "other_primary_email");
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(otherUserAccount);
 
         // user with same id is already present in db, but it's primary email will not match and should be updated in db

@@ -59,7 +59,7 @@ public class EmailNotificationHelper {
                 .addLineBreak()
                 .addText("Project Title: " + projectTitle)
                 .addLineBreak()
-                .addText("User Name: " + getUserNameFromSubmissionAccountOrDefault(submissionAccount, "NA"))
+                .addText("User Name: " + getUserNameFromSubmissionAccountOrDefault(submissionAccount, "Not Set"))
                 .addLineBreak()
                 .addText("User Email: " + submissionAccount.getPrimaryEmail())
                 .addGap(2)
