@@ -36,29 +36,23 @@ public class SubmissionAccount {
     private List<String> secondaryEmails;
 
     @NonNull
-    @Column(nullable = false, name = "first_name")
+    @Column(name = "first_name")
     private String firstName;
 
     @NonNull
-    @Column(nullable = false, name = "last_name")
+    @Column(name = "last_name")
     private String lastName;
 
     public SubmissionAccount() {
 
     }
 
-    public SubmissionAccount(String userId, String loginType) {
-        this.id = createId(userId, loginType);
-        this.userId = userId;
-        this.loginType = loginType;
-    }
-
     public SubmissionAccount(String userId, String loginType, String firstName, String lastName, String primaryEmail) {
         this.id = createId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
-        this.firstName = firstName;
-        this.lastName = lastName;
+        this.firstName = firstName != null ? firstName : "";
+        this.lastName = lastName != null ? lastName : "";
         this.primaryEmail = primaryEmail;
     }
 
@@ -67,8 +61,8 @@ public class SubmissionAccount {
         this.id = createId(userId, loginType);
         this.userId = userId;
         this.loginType = loginType;
-        this.firstName = firstName;
-        this.lastName = lastName;
+        this.firstName = firstName != null ? firstName : "";
+        this.lastName = lastName != null ? lastName : "";
         this.primaryEmail = primaryEmail;
         this.secondaryEmails = secondaryEmails;
     }
@@ -104,22 +98,20 @@ public class SubmissionAccount {
         this.secondaryEmails = secondaryEmails;
     }
 
-    @NonNull
     public String getFirstName() {
         return firstName;
     }
 
-    public void setFirstName(@NonNull String firstName) {
-        this.firstName = firstName;
+    public void setFirstName(String firstName) {
+        this.firstName = firstName != null ? firstName : "";
     }
 
-    @NonNull
     public String getLastName() {
         return lastName;
     }
 
-    public void setLastName(@NonNull String lastName) {
-        this.lastName = lastName;
+    public void setLastName(String lastName) {
+        this.lastName = lastName != null ? lastName : "";
     }
 
     private String createId(String userId, String loginType) {

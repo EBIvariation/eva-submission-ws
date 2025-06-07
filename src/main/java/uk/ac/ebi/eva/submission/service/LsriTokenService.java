@@ -16,8 +16,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
-import uk.ac.ebi.eva.submission.model.LsriUserInfo;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.model.LsriUserInfo;
 
 import java.util.Objects;
 
@@ -51,8 +51,8 @@ public class LsriTokenService {
         LsriUserInfo lsriUserInfo = new Gson().fromJson(jsonResponse, LsriUserInfo.class);
 
         String userId = lsriUserInfo.getUserId();
-        String firstName = lsriUserInfo.getFirstName();
-        String lastName = lsriUserInfo.getLastName();
+        String firstName = lsriUserInfo.getFirstName() != null ? lsriUserInfo.getFirstName() : "";
+        String lastName = lsriUserInfo.getLastName() != null ? lsriUserInfo.getLastName() : "";
         String email = lsriUserInfo.getEmail();
 
         return new SubmissionAccount(userId, LoginMethod.LSRI.getLoginType(), firstName, lastName, email);

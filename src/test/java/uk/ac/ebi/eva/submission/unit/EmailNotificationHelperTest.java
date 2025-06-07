@@ -29,7 +29,7 @@ public class EmailNotificationHelperTest {
     public void testGetTextForSubmissionStatusUpdateSuccess() {
         SubmissionAccount submissionAccount = new SubmissionAccount("johndoe@example.com",
                 LoginMethod.WEBIN.toString(), "John", "Doe", "john@example.com");
-        String expectedText = "Dear John," +
+        String expectedText = "Dear John Doe," +
                 "<br /><br />" +
                 "Here is the update for your submission: " +
                 "<br /><br />" +
@@ -53,7 +53,7 @@ public class EmailNotificationHelperTest {
     public void testGetTextForSubmissionStatusUpdateFailure() {
         SubmissionAccount submissionAccount = new SubmissionAccount("johndoe@example.com",
                 LoginMethod.WEBIN.toString(), "John", "Doe", "john@example.com");
-        String expectedText = "Dear John," +
+        String expectedText = "Dear John Doe," +
                 "<br /><br />" +
                 "Here is the update for your submission: " +
                 "<br /><br />" +
