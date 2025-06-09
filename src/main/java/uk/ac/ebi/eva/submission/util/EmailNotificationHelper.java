@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.util;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
@@ -8,7 +9,8 @@ import static uk.ac.ebi.eva.submission.util.Utils.getUserNameFromSubmissionAccou
 
 @Component
 public class EmailNotificationHelper {
-    public static final String EVA_HELPDESK_EMAIL = "eva-helpdesk@ebi.ac.uk";
+    @Value("${eva.helpdesk.email}")
+    private String evaHelpdeskEmail;
 
     public String getSubjectForSubmissionStatusUpdate(SubmissionStatus submissionStatus, boolean success) {
         String result = success ? "SUCCESS" : "FAILED";
@@ -75,10 +77,18 @@ public class EmailNotificationHelper {
                 .addTextWithSize("Please don't reply to this email.", 10)
                 .addLineBreak()
                 .addTextWithSize("For any issues/support please contact us at ", 10)
-                .addEmailLinkWithSize(EVA_HELPDESK_EMAIL, EVA_HELPDESK_EMAIL, 10)
+                .addEmailLinkWithSize(evaHelpdeskEmail, evaHelpdeskEmail, 10)
                 .addLineBreak()
                 .addTextWithSize("European Variation Archive: EMBL-EBI", 10)
                 .build();
 
+    }
+
+    public String getEvaHelpdeskEmail() {
+        return evaHelpdeskEmail;
+    }
+
+    public void setEvaHelpdeskEmail(String evaHelpdeskEmail) {
+        this.evaHelpdeskEmail = evaHelpdeskEmail;
     }
 }
