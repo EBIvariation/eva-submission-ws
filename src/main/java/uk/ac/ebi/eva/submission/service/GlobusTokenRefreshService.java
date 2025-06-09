@@ -29,6 +29,9 @@ public class GlobusTokenRefreshService {
     @Value("${globus.refreshToken}")
     private String refreshToken;
 
+    @Value("${globus.token.endpoint}")
+    private String tokenEndpoint;
+
     private String accessToken;
 
     // Support concurrent reads that are albeit locked by writes
@@ -59,8 +62,6 @@ public class GlobusTokenRefreshService {
     // Out of abundance of caution, we begin the token refresh process 1 hour ahead of this
     @Scheduled(fixedDelay = 47 * 60 * 60 * 1000)
     public void refreshToken() {
-        String tokenEndpoint = "https://auth.globus.org/v2/oauth2/token";
-
         // Create a RestTemplate instance
         RestTemplate restTemplate = new RestTemplate();
 

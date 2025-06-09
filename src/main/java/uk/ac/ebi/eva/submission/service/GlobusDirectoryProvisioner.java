@@ -25,8 +25,8 @@ public class GlobusDirectoryProvisioner {
     @Value("${globus.submission.endpointId}")
     private String endpointId;
 
-    private static final String GLOBUS_TRANSFER_API_BASE_URL =
-            "https://transfer.api.globusonline.org/v0.10/operation/endpoint";
+    @Value("${globus.transfer.base.url}")
+    private String transferApiBaseUrl;
 
 
     public GlobusDirectoryProvisioner(GlobusTokenRefreshService globusTokenRefreshService, RestTemplate restTemplate) {
@@ -52,7 +52,7 @@ public class GlobusDirectoryProvisioner {
             return;
         }
 
-        String transferApiUrl = String.format("%s/%s/mkdir", GLOBUS_TRANSFER_API_BASE_URL, endpointId);
+        String transferApiUrl = String.format("%s/%s/mkdir", transferApiBaseUrl, endpointId);
         // Create the request body with the endpoint ID and the path for the new directory
         String requestBody = String.format("{\"DATA_TYPE\": \"mkdir\", \"path\": \"/%s\"}", directoryToCreate);
 
@@ -73,7 +73,7 @@ public class GlobusDirectoryProvisioner {
         HttpEntity<String> entity = new HttpEntity<>("", headers);
         try {
             restTemplate.exchange(
-                    GLOBUS_TRANSFER_API_BASE_URL + "/" + endpointId + "/ls?path=" + directoryName,
+                    transferApiBaseUrl + "/" + endpointId + "/ls?path=" + directoryName,
                     HttpMethod.GET, entity, String.class);
             return true;
         } catch (HttpClientErrorException ex) {
@@ -83,7 +83,7 @@ public class GlobusDirectoryProvisioner {
 
     public String listSubmittedFiles(String submissionDirPath) {
         HttpEntity<String> requestEntity = new HttpEntity<>(getGlobusAccessHeaders());
-        String transferApiUrl = String.format("%s/%s/ls?path=%s", GLOBUS_TRANSFER_API_BASE_URL, endpointId, submissionDirPath);
+        String transferApiUrl = String.format("%s/%s/ls?path=%s", transferApiBaseUrl, endpointId, submissionDirPath);
         ResponseEntity<String> response = restTemplate.exchange(transferApiUrl, HttpMethod.GET, requestEntity, String.class);
 
         if (response.getStatusCode().is2xxSuccessful()) {
