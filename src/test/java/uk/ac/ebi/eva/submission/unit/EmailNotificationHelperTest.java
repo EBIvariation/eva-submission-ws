@@ -15,6 +15,7 @@ public class EmailNotificationHelperTest {
     @BeforeEach
     public void setup() {
         emailNotificationHelper = new EmailNotificationHelper();
+        emailNotificationHelper.setEvaHelpdeskEmail("eva-helpdesk@ebi.ac.uk");
     }
 
     @Test

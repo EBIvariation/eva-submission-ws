@@ -217,7 +217,7 @@ public class SubmissionService {
                                                                        String submissionId, String projectTitle) {
         String subject = String.format("New Submission Uploaded. Submission Id - (%s)", submissionId);
         String body = emailHelper.getTextForEVAHelpdeskSubmissionUploaded(submissionAccount, submissionId, projectTitle);
-        mailSender.sendEmail(EmailNotificationHelper.EVA_HELPDESK_EMAIL, subject, body);
+        mailSender.sendEmail(emailHelper.getEvaHelpdeskEmail(), subject, body);
     }
 
     public List<Submission> getSubmissionsByStatus(SubmissionStatus status) {
