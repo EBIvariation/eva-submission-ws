@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,6 +109,10 @@ public class SubmissionWSIntegrationTest {
     @MockBean
     private MailSender mailSender;
 
+    private String userToken = "webinUserToken";
+    private SubmissionAccount webinUserAccount = getWebinUserAccount();
+    private String submissionId;
+
     @Container
     static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6")
             .withInitScript("init.sql");
@@ -120,10 +125,19 @@ public class SubmissionWSIntegrationTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
     }
 
+    @BeforeEach
+    public void setup() {
+        doNothing().when(globusTokenRefreshService).refreshToken();
+        doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
+        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(webinUserAccount);
+        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString(), anyString());
+
+        submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+    }
+
     @Test
     @Transactional
     public void testSubmissionAuthenticateLsri() throws Exception {
-        String userId = "lsriuser@lsri.com";
         String token = "lsriUserToken";
         String deviceCode = "deviceCode";
         String expiresIn = "600";
@@ -146,12 +160,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionInitiate() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount webinUserAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(webinUserAccount);
-        doNothing().when(globusTokenRefreshService).refreshToken();
-        doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
-
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate")
@@ -182,12 +190,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionInitiateWithNullUserName() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount webinUserAccount = getWebinUserAccountWithNullUserName();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(webinUserAccount);
-        doNothing().when(globusTokenRefreshService).refreshToken();
-        doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
-
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         String submissionId = new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate")
@@ -218,15 +220,10 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testUserUpdate() throws Exception {
-        String userToken = "webinUserToken";
-        doNothing().when(globusTokenRefreshService).refreshToken();
-        doNothing().when(globusDirectoryProvisioner).createSubmissionDirectory(anyString());
+        SubmissionAccount orgUserAccount = webinUserAccount;
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
-
-        SubmissionAccount orgUserAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(orgUserAccount);
 
         // create user
         new ObjectMapper().readTree(mvc.perform(post("/v1/submission/initiate")
@@ -274,12 +271,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionGetStatus() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         mvc.perform(get("/v1/submission/" + submissionId + "/status")
@@ -291,10 +282,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionGetStatusSubmissionDoesNotExist() throws Exception {
-        String userToken = "webinUserToken";
         String submissionId = "test123";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -307,15 +295,9 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testUploadMetadataJsonAndMarkUploaded() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-
         String projectTitle = "test_project_title";
         String projectDescription = "test_project_description";
+        int taxonomyId = 9606;
 
         ObjectMapper mapper = new ObjectMapper();
 
@@ -325,6 +307,7 @@ public class SubmissionWSIntegrationTest {
         ObjectNode projectNode = mapper.createObjectNode();
         projectNode.put("title", projectTitle);
         projectNode.put("description", projectDescription);
+        projectNode.put("taxId", taxonomyId);
 
         ArrayNode filesArrayNode = mapper.createArrayNode();
         ObjectNode fileNode1 = mapper.createObjectNode();
@@ -356,7 +339,7 @@ public class SubmissionWSIntegrationTest {
 
         globusRootNode.put("DATA", dataNodeArray);
 
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -386,13 +369,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testUploadMetadataJsonAndMarkUploadedForLargeProjectTitleAndDescription() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-
         String projectTitle = buildLargeStringOfLength(600);
         String projectDescription = buildLargeStringOfLength(5500);
 
@@ -404,6 +380,7 @@ public class SubmissionWSIntegrationTest {
         ObjectNode projectNode = mapper.createObjectNode();
         projectNode.put("title", projectTitle);
         projectNode.put("description", projectDescription);
+        projectNode.put("taxId", 9606);
 
         ArrayNode filesArrayNode = mapper.createArrayNode();
         ObjectNode fileNode1 = mapper.createObjectNode();
@@ -435,7 +412,7 @@ public class SubmissionWSIntegrationTest {
 
         globusRootNode.put("DATA", dataNodeArray);
 
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         assertEquals(metadataRootNode.get("project").get("title").asText().length(), 600);
         assertEquals(metadataRootNode.get("project").get("description").asText().length(), 5500);
@@ -474,13 +451,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionUploadNoFileInfoInMetadatajson() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn("");
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn("");
 
         // create metadata json
         ObjectMapper mapper = new ObjectMapper();
@@ -501,13 +472,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionUploadErrorGettingInfoFromGlobus() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn("");
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn("");
 
         // create metadata json
         ObjectMapper mapper = new ObjectMapper();
@@ -533,13 +498,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionUploadFileNotUploaded() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-
         ObjectMapper mapper = new ObjectMapper();
 
         // create metadata json
@@ -560,7 +518,7 @@ public class SubmissionWSIntegrationTest {
         dataNodeArray.add(dataNode1);
         globusRootNode.put("DATA", dataNodeArray);
 
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -575,13 +533,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionUploadFileSizeMismatch() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-
         ObjectMapper mapper = new ObjectMapper();
 
         // create metadata json
@@ -602,7 +553,7 @@ public class SubmissionWSIntegrationTest {
         dataNodeArray.add(dataNode1);
         globusRootNode.put("DATA", dataNodeArray);
 
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -618,13 +569,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionUploadFileNotUploadedAndFileSizeMismatch() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-
         ObjectMapper mapper = new ObjectMapper();
 
         // create metadata json
@@ -649,7 +593,7 @@ public class SubmissionWSIntegrationTest {
         dataNodeArray.add(dataNode1);
         globusRootNode.put("DATA", dataNodeArray);
 
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -666,13 +610,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testRequiredMetadataFieldsNotProvided() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-        doNothing().when(mailSender).sendEmail(anyString(), anyString(), anyString());
-
         String projectTitle = "test_project_title";
 
         ObjectMapper mapper = new ObjectMapper();
@@ -704,7 +641,7 @@ public class SubmissionWSIntegrationTest {
 
         globusRootNode.put("DATA", dataNodeArray);
 
-        when(globusDirectoryProvisioner.listSubmittedFiles(submissionAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -713,18 +650,14 @@ public class SubmissionWSIntegrationTest {
                         .content(mapper.writeValueAsString(metadataRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Required fields project title and project description " +
-                        "could not be found in metadata json"));
+                .andExpect(content().string("Some of the required fields from project title, " +
+                        "project description and taxonomy id could not be found in metadata json"));
     }
 
 
     @Test
     @Transactional
     public void testSubmissionDoesNotExistException() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
         String submissionId = "wrong_submission_id";
         String projectTitle = "test_project_title";
         String projectDescription = "test_project_description";
@@ -743,12 +676,9 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionAlreadyUploaded() throws Exception {
-        String userToken = "webinUserToken";
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
         String projectTitle = "test_project_title";
         String projectDescription = "test_project_description";
-        String submissionId = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        String submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
         String metadataJson = "{\"project\": {\"title\":\"" + projectTitle + "\",\"description\":\"" + projectDescription + "\"}}";
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -764,11 +694,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusCorrect() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
 
@@ -787,11 +712,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusWrong() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId = createNewSubmissionEntry(submissionAccount);
-
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
         mvc.perform(put("/v1/admin/submission/" + submissionId + "/status/complete")
@@ -803,9 +723,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionStatusSubmissionDoesNotExist() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
         String submissionId = "test-wrong-submission-id";
 
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -820,12 +737,9 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testGetSubmissionByStatus() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
-        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
-        String submissionId3 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.OPEN);
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
+        String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
+        String submissionId3 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
@@ -841,13 +755,10 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testGetSubmissionProcessingByStepAndStatus() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
         createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.READY_FOR_PROCESSING);
-        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.ON_HOLD);
 
@@ -864,13 +775,10 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatus() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
         createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.READY_FOR_PROCESSING);
-        String submissionId2 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.ON_HOLD);
 
@@ -892,10 +800,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatusCreateFirstEntry() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        String submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
@@ -915,9 +820,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatusSubmissionDoesNotExist() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
         String submissionId = "test-wrong-submission-id";
 
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -933,12 +835,10 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testGetSubmissionDetail() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
         String projectTitle = "test_project_title";
         String projectDescription = "test_project_description";
 
-        String submissionId1 = createNewSubmissionEntry(submissionAccount, SubmissionStatus.UPLOADED);
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
         ObjectMapper mapper = new ObjectMapper();
         JsonNode metadataRootNode = createNewMetadataJSON(mapper, projectTitle, projectDescription);
 
@@ -959,10 +859,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSubmissionProcessingHistory() throws Exception {
-        SubmissionAccount submissionAccount = getWebinUserAccount();
-        when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(submissionAccount);
-
-        String submissionId = createNewSubmissionEntry(submissionAccount, SubmissionStatus.PROCESSING);
+        String submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
@@ -1028,10 +925,6 @@ public class SubmissionWSIntegrationTest {
         secondaryEmails.add("webinUserId_1@webin.com");
         secondaryEmails.add("webinUserId_2@webin.com");
         return new SubmissionAccount(accountId, loginType, firstName, lastName, primaryEmail, secondaryEmails);
-    }
-
-    private String createNewSubmissionEntry(SubmissionAccount submissionAccount) {
-        return createNewSubmissionEntry(submissionAccount, SubmissionStatus.OPEN);
     }
 
     private String createNewSubmissionEntry(SubmissionAccount submissionAccount, SubmissionStatus status) {
