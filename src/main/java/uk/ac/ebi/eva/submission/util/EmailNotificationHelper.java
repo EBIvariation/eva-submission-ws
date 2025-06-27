@@ -12,15 +12,20 @@ public class EmailNotificationHelper {
     @Value("${eva.helpdesk.email}")
     private String evaHelpdeskEmail;
 
+    @Value("${eva.consent.statement}")
+    private String evaConsentStatement;
+
     public String getSubjectForSubmissionStatusUpdate(SubmissionStatus submissionStatus, boolean success) {
         String result = success ? "SUCCESS" : "FAILED";
         return String.format("EVA Submission Update: %s %s", submissionStatus, result);
     }
 
     public String getTextForSubmissionStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
-                                                   String projectTitle, SubmissionStatus submissionStatus, boolean success) {
+                                                   String projectTitle, SubmissionStatus submissionStatus,
+                                                   boolean needConsentStatement, boolean success) {
         String result;
         String resultColor;
+        String notificationText;
         if (success) {
             result = "SUCCESS";
             resultColor = "green";
@@ -29,7 +34,7 @@ public class EmailNotificationHelper {
             resultColor = "red";
         }
 
-        String notificationText = new HTMLHelper()
+        HTMLHelper htmlHelper = new HTMLHelper()
                 .addText("Dear " + getUserNameFromSubmissionAccountOrDefault(submissionAccount, "User") + ",")
                 .addGap(1)
                 .addText("Here is the update for your submission: ")
@@ -41,11 +46,21 @@ public class EmailNotificationHelper {
                 .addText("Submission Status: " + submissionStatus)
                 .addLineBreak()
                 .addText("Result: ")
-                .addBoldTextWithColor(result, resultColor)
-                .addGap(2)
-                .build();
+                .addBoldTextWithColor(result, resultColor);
 
-        notificationText += getNotificationFooter();
+        if (needConsentStatement) {
+            htmlHelper
+                    .addLineBreak()
+                    .addText("Consent Statement: ")
+                    .addLink(evaConsentStatement, "Link to Consent Statement")
+                    .addGap(2)
+                    .addBoldTextWithColor("Note: ", "black")
+                    .addText("Please provide a signed copy of the consent statement for your submission. "
+                            + "Your submission will be on hold and can only be processed after we have received the consent statement.");
+        }
+
+        notificationText = htmlHelper.addGap(2).build();
+        notificationText += getNotificationFooter(false);
 
         return notificationText;
     }
@@ -67,20 +82,25 @@ public class EmailNotificationHelper {
                 .addGap(2)
                 .build();
 
-        notificationText += getNotificationFooter();
+        notificationText += getNotificationFooter(true);
 
         return notificationText;
     }
 
-    public String getNotificationFooter() {
-        return new HTMLHelper()
-                .addTextWithSize("Please don't reply to this email.", 10)
-                .addLineBreak()
-                .addTextWithSize("For any issues/support please contact us at ", 10)
+    public String getNotificationFooter(boolean addDontReply) {
+        HTMLHelper htmlHelper = new HTMLHelper();
+        if (addDontReply) {
+            htmlHelper.addTextWithSize("Please don't reply to this email.", 10)
+                    .addLineBreak();
+        }
+
+        htmlHelper.addTextWithSize("For any issues/support please contact us at ", 10)
                 .addEmailLinkWithSize(evaHelpdeskEmail, evaHelpdeskEmail, 10)
                 .addLineBreak()
                 .addTextWithSize("European Variation Archive: EMBL-EBI", 10)
                 .build();
+
+        return htmlHelper.build();
 
     }
 

@@ -39,13 +39,39 @@ public class EmailNotificationHelperTest {
                 "Submission Status: UPLOADED<br />" +
                 "Result: <b><span style=\"color:green;\">SUCCESS</span></b>" +
                 "<br /><br /><br />" +
-                "<span style=\"font-size:10px;\">Please don't reply to this email.</span><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "submission12345", "project123", SubmissionStatus.UPLOADED, true);
+                "submission12345", "project123", SubmissionStatus.UPLOADED, false, true);
+
+        assertEquals(expectedText, actualText);
+    }
+
+    @Test
+    public void testGetTextForSubmissionStatusUpdateSuccess_withHumanTaxonomy() {
+        SubmissionAccount submissionAccount = new SubmissionAccount("johndoe@example.com",
+                LoginMethod.WEBIN.toString(), "John", "Doe", "john@example.com");
+        String expectedText = "Dear John Doe," +
+                "<br /><br />" +
+                "Here is the update for your submission: " +
+                "<br /><br />Submission ID: " +
+                "submission12345<br />" +
+                "Project Title: project123<br />" +
+                "Submission Status: UPLOADED<br />" +
+                "Result: <b><span style=\"color:green;\">SUCCESS</span>" +
+                "</b><br />Consent Statement: <a href=\"null\">Link to Consent Statement</a>" +
+                "<br /><br /><br /><b>" +
+                "<span style=\"color:black;\">Note: </span></b>Please provide a signed copy of the consent statement for your submission. " +
+                "Your submission will be on hold and can only be processed after we have received the consent statement." +
+                "<br /><br /><br />" +
+                "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
+                "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
+                "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
+
+        String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
+                "submission12345", "project123", SubmissionStatus.UPLOADED, true, true);
 
         assertEquals(expectedText, actualText);
     }
@@ -63,13 +89,12 @@ public class EmailNotificationHelperTest {
                 "Submission Status: UPLOADED<br />" +
                 "Result: <b><span style=\"color:red;\">FAILED</span></b>" +
                 "<br /><br /><br />" +
-                "<span style=\"font-size:10px;\">Please don't reply to this email.</span><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "12345", "project123", SubmissionStatus.UPLOADED, false);
+                "12345", "project123", SubmissionStatus.UPLOADED, false, false);
 
         assertEquals(expectedText, actualText);
     }
@@ -104,7 +129,7 @@ public class EmailNotificationHelperTest {
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
-        String actualFooter = emailNotificationHelper.getNotificationFooter();
+        String actualFooter = emailNotificationHelper.getNotificationFooter(true);
 
         assertEquals(expectedFooter, actualFooter);
     }

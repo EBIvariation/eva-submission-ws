@@ -205,12 +205,13 @@ public class SubmissionService {
     }
 
     public void sendMailNotificationToUserForStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
-                                                          String projectTitle, SubmissionStatus submissionStatus, boolean success) {
+                                                          String projectTitle, SubmissionStatus submissionStatus,
+                                                          boolean needConsentStatement, boolean success) {
         String sendTo = submissionAccount.getPrimaryEmail();
         String subject = emailHelper.getSubjectForSubmissionStatusUpdate(submissionStatus, success);
         String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, projectTitle,
-                submissionStatus, success);
-        mailSender.sendEmail(sendTo, subject, body);
+                submissionStatus, needConsentStatement, success);
+        mailSender.sendEmail(emailHelper.getEvaHelpdeskEmail(), sendTo, subject, body);
     }
 
     public void sendMailNotificationToEVAHelpdeskForSubmissionUploaded(SubmissionAccount submissionAccount,
