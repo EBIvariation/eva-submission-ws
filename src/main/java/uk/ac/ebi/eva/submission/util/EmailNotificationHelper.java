@@ -50,13 +50,13 @@ public class EmailNotificationHelper {
 
         if (needConsentStatement) {
             htmlHelper
-                    .addLineBreak()
-                    .addText("Consent Statement: ")
-                    .addLink(evaConsentStatement, "Link to Consent Statement")
                     .addGap(2)
                     .addBoldTextWithColor("Note: ", "black")
-                    .addText("Please provide a signed copy of the consent statement for your submission. "
-                            + "Your submission will be on hold and can only be processed after we have received the consent statement.");
+                    .addText("Your submission contains human genotypes for which we require a Consent Statement. " +
+                            "Please copy the template provided in the link below, fill it, sign it and return it to ")
+                    .addEmailLink(evaHelpdeskEmail, evaHelpdeskEmail)
+                    .addGap(1)
+                    .addLink(evaConsentStatement, "Link to Consent Statement");
         }
 
         notificationText = htmlHelper.addGap(2).build();

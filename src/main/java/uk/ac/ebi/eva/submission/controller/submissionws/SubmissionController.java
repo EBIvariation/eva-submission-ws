@@ -124,6 +124,7 @@ public class SubmissionController extends BaseController {
                 Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
 
                 String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
+                //TODO: Check the aggregation as well as the taxonomy
                 boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(taxonomyId);
                 submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
                         SubmissionStatus.UPLOADED, needConsentStatement, true);

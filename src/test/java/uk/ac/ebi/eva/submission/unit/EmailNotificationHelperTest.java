@@ -56,19 +56,19 @@ public class EmailNotificationHelperTest {
         String expectedText = "Dear John Doe," +
                 "<br /><br />" +
                 "Here is the update for your submission: " +
-                "<br /><br />Submission ID: " +
-                "submission12345<br />" +
+                "<br /><br />" +
+                "Submission ID: submission12345<br />" +
                 "Project Title: project123<br />" +
                 "Submission Status: UPLOADED<br />" +
-                "Result: <b><span style=\"color:green;\">SUCCESS</span>" +
-                "</b><br />Consent Statement: <a href=\"null\">Link to Consent Statement</a>" +
-                "<br /><br /><br /><b>" +
-                "<span style=\"color:black;\">Note: </span></b>Please provide a signed copy of the consent statement for your submission. " +
-                "Your submission will be on hold and can only be processed after we have received the consent statement." +
+                "Result: <b><span style=\"color:green;\">SUCCESS</span></b>" +
                 "<br /><br /><br />" +
+                "<b><span style=\"color:black;\">" +
+                "Note: </span></b>Your submission contains human genotypes for which we require a Consent Statement. " +
+                "Please copy the template provided in the link below, fill it, sign it and return it to <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a>" +
+                "<br /><br /><a href=\"null\">Link to Consent Statement</a><br /><br /><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
-                "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
-                "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
+                "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> </span><br />" +
+                "<span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
                 "submission12345", "project123", SubmissionStatus.UPLOADED, true, true);
