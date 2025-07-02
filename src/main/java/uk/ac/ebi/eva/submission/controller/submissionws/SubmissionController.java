@@ -39,6 +39,7 @@ public class SubmissionController extends BaseController {
     private static final String PROJECT = "project";
     private static final String TITLE = "title";
     private static final String DESCRIPTION = "description";
+    private static final String TAXONOMY_ID = "taxId";
 
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
@@ -115,22 +116,26 @@ public class SubmissionController extends BaseController {
                 ObjectNode projectNode = (ObjectNode) metadataJson.get(PROJECT);
                 String projectTitleOrg = projectNode.get(TITLE).asText();
                 String projectDescriptionOrg = projectNode.get(DESCRIPTION).asText();
+                int taxonomyId = projectNode.get(TAXONOMY_ID).asInt();
                 projectNode.put(TITLE, projectTitleOrg.substring(0, Math.min(projectTitleOrg.length(), PROJECT_TITLE_LENGTH)));
                 projectNode.put(DESCRIPTION, projectDescriptionOrg.substring(0, Math.min(projectDescriptionOrg.length(),
                         PROJECT_DESCRIPTION_LENGTH)));
+
+                Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
+
+                String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
+                //TODO: Check the aggregation as well as the taxonomy
+                boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(taxonomyId);
+                submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
+                        SubmissionStatus.UPLOADED, needConsentStatement, true);
+                submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
+                        projectTitle);
+
+                return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
             } catch (Exception e) {
-                throw new RequiredFieldsMissingException("Required fields project title and project description " +
+                throw new RequiredFieldsMissingException("Some of the required fields from project title, project description and taxonomy id " +
                         "could not be found in metadata json");
             }
-
-            Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
-
-            String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
-            submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
-                    SubmissionStatus.UPLOADED, true);
-            submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
-                    projectTitle);
-            return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
         } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
@@ -149,5 +154,13 @@ public class SubmissionController extends BaseController {
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
+    }
+
+    private boolean checkConsentStatementIsNeededForTheSubmission(int taxonomyId) {
+        if (taxonomyId == 9606) {
+            return true;
+        }
+
+        return false;
     }
 }
