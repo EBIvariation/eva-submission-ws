@@ -55,6 +55,9 @@ public class EmailNotificationHelper {
                     .addText("Your submission contains human genotypes for which we require a Consent Statement. " +
                             "Please copy the template provided in the link below, fill it, sign it and return it to ")
                     .addEmailLink(evaHelpdeskEmail, evaHelpdeskEmail)
+                    .addText(". For more info, please see our ")
+                    .addLink("https://www.ebi.ac.uk/eva/?Help#submissionPanel&link=consent-statement-for-human-genotype-data", "help")
+                    .addText(" section.")
                     .addGap(1)
                     .addLink(evaConsentStatement, "Link to Consent Statement");
         }
@@ -110,5 +113,9 @@ public class EmailNotificationHelper {
 
     public void setEvaHelpdeskEmail(String evaHelpdeskEmail) {
         this.evaHelpdeskEmail = evaHelpdeskEmail;
+    }
+
+    public void setEvaConsentStatement(String evaConsentStatement) {
+        this.evaConsentStatement = evaConsentStatement;
     }
 }

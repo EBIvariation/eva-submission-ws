@@ -16,6 +16,7 @@ public class EmailNotificationHelperTest {
     public void setup() {
         emailNotificationHelper = new EmailNotificationHelper();
         emailNotificationHelper.setEvaHelpdeskEmail("eva-helpdesk@ebi.ac.uk");
+        emailNotificationHelper.setEvaConsentStatement("https://docs.google.com/document/d/1UaRmimAe919IZYIH55mDXMe-4sHsRVqaP4moqx2IYE4");
     }
 
     @Test
@@ -64,8 +65,9 @@ public class EmailNotificationHelperTest {
                 "<br /><br /><br />" +
                 "<b><span style=\"color:black;\">" +
                 "Note: </span></b>Your submission contains human genotypes for which we require a Consent Statement. " +
-                "Please copy the template provided in the link below, fill it, sign it and return it to <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a>" +
-                "<br /><br /><a href=\"null\">Link to Consent Statement</a><br /><br /><br />" +
+                "Please copy the template provided in the link below, fill it, sign it and return it to <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a>. " +
+                "For more info, please see our <a href=\"https://www.ebi.ac.uk/eva/?Help#submissionPanel&link=consent-statement-for-human-genotype-data\">help</a> section." +
+                "<br /><br /><a href=\"https://docs.google.com/document/d/1UaRmimAe919IZYIH55mDXMe-4sHsRVqaP4moqx2IYE4\">Link to Consent Statement</a><br /><br /><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> </span><br />" +
                 "<span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
