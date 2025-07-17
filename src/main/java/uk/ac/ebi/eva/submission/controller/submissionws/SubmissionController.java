@@ -1,6 +1,7 @@
 package uk.ac.ebi.eva.submission.controller.submissionws;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,7 +29,9 @@ import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_DESCRIPTION_LENGTH;
 import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_TITLE_LENGTH;
@@ -40,6 +43,7 @@ public class SubmissionController extends BaseController {
     private static final String TITLE = "title";
     private static final String DESCRIPTION = "description";
     private static final String TAXONOMY_ID = "taxId";
+    private static final String ANALYSIS = "analysis";
 
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
@@ -124,8 +128,8 @@ public class SubmissionController extends BaseController {
                 Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
 
                 String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
-                //TODO: Check the aggregation as well as the taxonomy
-                boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(taxonomyId);
+                ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
+                boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(taxonomyId, analysisNode);
                 submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
                         SubmissionStatus.UPLOADED, needConsentStatement, true);
                 submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
@@ -156,8 +160,20 @@ public class SubmissionController extends BaseController {
         }
     }
 
-    private boolean checkConsentStatementIsNeededForTheSubmission(int taxonomyId) {
-        if (taxonomyId == 9606) {
+    private boolean checkConsentStatementIsNeededForTheSubmission(int taxonomyId, ArrayNode analysisNode) {
+        if (taxonomyId != 9606) {
+            return false;
+        }
+
+        Set<String> evidenceTypes = new HashSet<>();
+        for (JsonNode node : analysisNode) {
+            String evidenceType = node.path("evidenceType").asText(null);
+            if (evidenceType != null) {
+                evidenceTypes.add(evidenceType);
+            }
+        }
+
+        if (evidenceTypes.size() == 0 || evidenceTypes.contains("genotype")) {
             return true;
         }
 

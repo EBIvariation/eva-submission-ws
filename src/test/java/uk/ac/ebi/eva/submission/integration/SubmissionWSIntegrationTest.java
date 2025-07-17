@@ -320,8 +320,20 @@ public class SubmissionWSIntegrationTest {
         filesArrayNode.add(fileNode1);
         filesArrayNode.add(fileNode2);
 
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode1 = mapper.createObjectNode();
+        analysisNode1.put("analysisAlias", "A1");
+        analysisNode1.put("evidenceType", "genotype");
+        ObjectNode analysisNode2 = mapper.createObjectNode();
+        analysisNode2.put("evidenceType", "allele_frequency");
+        analysisNode2.put("analysisAlias", "A2");
+
+        analysisArrayNode.add(analysisNode1);
+        analysisArrayNode.add(analysisNode2);
+
         metadataRootNode.put("project", projectNode);
         metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("analysis", analysisArrayNode);
 
         // create Globus list directory result json
         ObjectNode globusRootNode = mapper.createObjectNode();
@@ -393,8 +405,20 @@ public class SubmissionWSIntegrationTest {
         filesArrayNode.add(fileNode1);
         filesArrayNode.add(fileNode2);
 
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode1 = mapper.createObjectNode();
+        analysisNode1.put("analysisAlias", "A1");
+        analysisNode1.put("evidenceType", "genotype");
+        ObjectNode analysisNode2 = mapper.createObjectNode();
+        analysisNode2.put("evidenceType", "allele_frequency");
+        analysisNode2.put("analysisAlias", "A2");
+
+        analysisArrayNode.add(analysisNode1);
+        analysisArrayNode.add(analysisNode2);
+
         metadataRootNode.put("project", projectNode);
         metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("analysis", analysisArrayNode);
 
         // create Globus list directory result json
         ObjectNode globusRootNode = mapper.createObjectNode();
