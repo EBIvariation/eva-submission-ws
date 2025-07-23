@@ -1,6 +1,7 @@
 package uk.ac.ebi.eva.submission.controller.submissionws;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,7 +29,9 @@ import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_DESCRIPTION_LENGTH;
 import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_TITLE_LENGTH;
@@ -39,6 +42,8 @@ public class SubmissionController extends BaseController {
     private static final String PROJECT = "project";
     private static final String TITLE = "title";
     private static final String DESCRIPTION = "description";
+    private static final String TAXONOMY_ID = "taxId";
+    private static final String ANALYSIS = "analysis";
 
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
@@ -115,22 +120,26 @@ public class SubmissionController extends BaseController {
                 ObjectNode projectNode = (ObjectNode) metadataJson.get(PROJECT);
                 String projectTitleOrg = projectNode.get(TITLE).asText();
                 String projectDescriptionOrg = projectNode.get(DESCRIPTION).asText();
+                int taxonomyId = projectNode.get(TAXONOMY_ID).asInt();
                 projectNode.put(TITLE, projectTitleOrg.substring(0, Math.min(projectTitleOrg.length(), PROJECT_TITLE_LENGTH)));
                 projectNode.put(DESCRIPTION, projectDescriptionOrg.substring(0, Math.min(projectDescriptionOrg.length(),
                         PROJECT_DESCRIPTION_LENGTH)));
+
+                Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
+
+                String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
+                ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
+                boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(taxonomyId, analysisNode);
+                submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
+                        SubmissionStatus.UPLOADED, needConsentStatement, true);
+                submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
+                        projectTitle);
+
+                return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
             } catch (Exception e) {
-                throw new RequiredFieldsMissingException("Required fields project title and project description " +
+                throw new RequiredFieldsMissingException("Some of the required fields from project title, project description and taxonomy id " +
                         "could not be found in metadata json");
             }
-
-            Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
-
-            String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
-            submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
-                    SubmissionStatus.UPLOADED, true);
-            submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
-                    projectTitle);
-            return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
         } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
@@ -149,5 +158,25 @@ public class SubmissionController extends BaseController {
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
+    }
+
+    private boolean checkConsentStatementIsNeededForTheSubmission(int taxonomyId, ArrayNode analysisNode) {
+        if (taxonomyId != 9606) {
+            return false;
+        }
+
+        Set<String> evidenceTypes = new HashSet<>();
+        for (JsonNode node : analysisNode) {
+            String evidenceType = node.path("evidenceType").asText(null);
+            if (evidenceType != null) {
+                evidenceTypes.add(evidenceType);
+            }
+        }
+
+        if (evidenceTypes.size() == 0 || evidenceTypes.contains("genotype")) {
+            return true;
+        }
+
+        return false;
     }
 }
