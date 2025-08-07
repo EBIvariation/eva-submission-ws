@@ -22,6 +22,7 @@ import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.MailSender;
 
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -133,7 +134,7 @@ public class SubmissionService {
             String fileSizeMismatchInfo = "";
 
             for (Map.Entry<String, Long> fileEntry : metadataFileInfo.entrySet()) {
-                String fileName = fileEntry.getKey();
+                String fileName = Paths.get(fileEntry.getKey()).getFileName().toString();
                 Long metadataFileSize = fileEntry.getValue();
                 if (globusFileInfo.containsKey(fileName)) {
                     Long fileSizeInGlobus = globusFileInfo.get(fileName);
