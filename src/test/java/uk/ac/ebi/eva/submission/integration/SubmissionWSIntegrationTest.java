@@ -569,8 +569,8 @@ public class SubmissionWSIntegrationTest {
         assertEquals(500, submissionDetails.getProjectTitle().length());
         assertEquals(5000, submissionDetails.getProjectDescription().length());
         assertThat(submissionDetails.getMetadataJson()).isNotNull();
-        assertEquals(500, submissionDetails.getMetadataJson().get("project").get("title").asText().length());
-        assertEquals(5000, submissionDetails.getMetadataJson().get("project").get("description").asText().length());
+        assertEquals(600, submissionDetails.getMetadataJson().get("project").get("title").asText().length());
+        assertEquals(5500, submissionDetails.getMetadataJson().get("project").get("description").asText().length());
 
         // assert email sent to User and Helpdesk
         assertEmailsSentToUserAndHelpDesk(true);
@@ -784,8 +784,8 @@ public class SubmissionWSIntegrationTest {
                         .content(mapper.writeValueAsString(metadataRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Some of the required fields from project title, " +
-                        "project description and taxonomy id could not be found in metadata json"));
+                .andExpect(content().string("Some of the required parameters are missing from the metadata. " +
+                        "Missing parameters: [project description, project taxonomy]"));
     }
 
 

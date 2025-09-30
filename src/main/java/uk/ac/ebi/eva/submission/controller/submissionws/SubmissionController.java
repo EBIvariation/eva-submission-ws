@@ -2,11 +2,12 @@ package uk.ac.ebi.eva.submission.controller.submissionws;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,20 +31,21 @@ import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-
-import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_DESCRIPTION_LENGTH;
-import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_TITLE_LENGTH;
 
 @RestController
 @RequestMapping("/v1")
 public class SubmissionController extends BaseController {
-    private static final String PROJECT = "project";
-    private static final String TITLE = "title";
-    private static final String DESCRIPTION = "description";
-    private static final String TAXONOMY_ID = "taxId";
-    private static final String ANALYSIS = "analysis";
+    private final Logger logger = LoggerFactory.getLogger(SubmissionController.class);
+
+    public static final String PROJECT = "project";
+    public static final String PROJECT_ACCESSION = "projectAccession";
+    public static final String TITLE = "title";
+    public static final String DESCRIPTION = "description";
+    public static final String TAXONOMY_ID = "taxId";
+    public static final String ANALYSIS = "analysis";
 
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
@@ -115,33 +117,38 @@ public class SubmissionController extends BaseController {
                     HttpStatus.BAD_REQUEST);
         }
         try {
+            // check if there is a difference between the files uploaded and files mentioned in metadata
             submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
-            try {
-                ObjectNode projectNode = (ObjectNode) metadataJson.get(PROJECT);
-                String projectTitleOrg = projectNode.get(TITLE).asText();
-                String projectDescriptionOrg = projectNode.get(DESCRIPTION).asText();
-                int taxonomyId = projectNode.get(TAXONOMY_ID).asInt();
-                projectNode.put(TITLE, projectTitleOrg.substring(0, Math.min(projectTitleOrg.length(), PROJECT_TITLE_LENGTH)));
-                projectNode.put(DESCRIPTION, projectDescriptionOrg.substring(0, Math.min(projectDescriptionOrg.length(),
-                        PROJECT_DESCRIPTION_LENGTH)));
 
-                Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId, metadataJson);
+            // check if all the required parameters are present/provided
+            Map<String, String> projectDetails = submissionService.checkAllRequiredParametersProvided(metadataJson);
 
-                String projectTitle = metadataJson.get(PROJECT).get(TITLE).asText();
-                ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
-                boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(taxonomyId, analysisNode);
-                submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
-                        SubmissionStatus.UPLOADED, needConsentStatement, true);
-                submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
-                        projectTitle);
+            String projectTitle = projectDetails.get(TITLE);
+            String projectDescription = projectDetails.get(DESCRIPTION);
+            String projectTaxonomy = projectDetails.get(TAXONOMY_ID);
 
-                return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
-            } catch (Exception e) {
-                throw new RequiredFieldsMissingException("Some of the required fields from project title, project description and taxonomy id " +
-                        "could not be found in metadata json");
-            }
+            // save submission details along with metadata
+            Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId,
+                    projectTitle, projectDescription, metadataJson);
+
+            // check if consent statement is required
+            ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
+            boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(Integer.parseInt(projectTaxonomy), analysisNode);
+
+            // send notification to user
+            submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
+                    SubmissionStatus.UPLOADED, needConsentStatement, true);
+            // send notification to EVA HelpDesk
+            submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
+                    projectTitle);
+
+            return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
         } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException ex) {
+            logger.error("Error occurred while processing the submission.", ex);
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            logger.error("Error occurred while processing the submission.", e);
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
