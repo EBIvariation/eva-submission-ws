@@ -106,7 +106,7 @@ public class EnaUtilsAndEnaDownloaderTest {
         Document doc = enaDownloader.downloadXmlFromEna(projectAccession);
 
         String title = doc.getElementsByTagName("TITLE").item(0).getTextContent();
-        org.junit.jupiter.api.Assertions.assertEquals("Test Project", title);
+        assertEquals("Test Project", title);
 
         verify(restTemplate, times(3)).getForObject(anyString(), eq(String.class));
     }
