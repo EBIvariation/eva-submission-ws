@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.logging.log4j.util.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.eva.submission.entity.Submission;
@@ -11,6 +14,7 @@ import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
+import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
@@ -20,6 +24,7 @@ import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
+import uk.ac.ebi.eva.submission.util.EnaUtils;
 import uk.ac.ebi.eva.submission.util.MailSender;
 
 import java.nio.file.Paths;
@@ -33,11 +38,18 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.DESCRIPTION;
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.PROJECT;
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.PROJECT_ACCESSION;
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.TAXONOMY_ID;
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.TITLE;
+import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_DESCRIPTION_LENGTH;
+import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_TITLE_LENGTH;
+
 @Service
 public class SubmissionService {
-    private static final String PROJECT = "project";
-    private static final String TITLE = "title";
-    private static final String DESCRIPTION = "description";
+    private final Logger logger = LoggerFactory.getLogger(SubmissionService.class);
+
     private static final String METADATA_FILES_TAG = "files";
     private static final String METADATA_FILE_NAME = "fileName";
     private static final String METADATA_FILE_SIZE = "fileSize";
@@ -62,12 +74,15 @@ public class SubmissionService {
 
     private EmailNotificationHelper emailHelper;
 
+    private EnaUtils enaUtils;
+
     public SubmissionService(SubmissionRepository submissionRepository,
                              SubmissionAccountRepository submissionAccountRepository,
                              SubmissionDetailsRepository submissionDetailsRepository,
                              SubmissionProcessingRepository submissionProcessingRepository,
                              GlobusDirectoryProvisioner globusDirectoryProvisioner,
-                             MailSender mailSender, EmailNotificationHelper emailHelper) {
+                             MailSender mailSender, EmailNotificationHelper emailHelper,
+                             EnaUtils enaUtils) {
         this.submissionRepository = submissionRepository;
         this.submissionAccountRepository = submissionAccountRepository;
         this.submissionDetailsRepository = submissionDetailsRepository;
@@ -75,6 +90,7 @@ public class SubmissionService {
         this.globusDirectoryProvisioner = globusDirectoryProvisioner;
         this.mailSender = mailSender;
         this.emailHelper = emailHelper;
+        this.enaUtils = enaUtils;
     }
 
     public Submission initiateSubmission(SubmissionAccount submissionAccount) {
@@ -107,12 +123,14 @@ public class SubmissionService {
                     ));
         }
         if (metadataFileInfo.isEmpty()) {
+            logger.error("Metadata json file for submission {} does not have any file info", submissionId);
             throw new MetadataFileInfoMismatchException("Metadata json file does not have any file info");
         }
 
         String directoryToList = String.format("%s/%s", submissionAccount.getId(), submissionId);
         String uploadedFilesInfo = globusDirectoryProvisioner.listSubmittedFiles(directoryToList);
         if (uploadedFilesInfo.isEmpty()) {
+            logger.error("Failed to retrieve any file info from submission directory {} for submission {}", directoryToList, submissionId);
             throw new MetadataFileInfoMismatchException("Failed to retrieve any file info from submission directory.");
         } else {
             Map<String, Long> globusFileInfo = new HashMap<>();
@@ -127,6 +145,7 @@ public class SubmissionService {
                             ));
                 }
             } catch (JsonProcessingException ex) {
+                logger.error("Error parsing fileInfo from Submission Directory. Exception: {}", ex.getMessage(), ex);
                 throw new MetadataFileInfoMismatchException("Error parsing fileInfo from Submission Directory");
             }
 
@@ -149,20 +168,72 @@ public class SubmissionService {
             if (!missingFileList.isEmpty() || !fileSizeMismatchInfo.isEmpty()) {
                 String missingFileMsg = missingFileList.isEmpty() ? "" : "There are some files mentioned in metadata json but not uploaded. Files : " + String.join(", ", missingFileList) + "\n";
                 String fileSizeMismatchMsg = fileSizeMismatchInfo.isEmpty() ? "" : "There are some files mentioned in metadata json whose size does not match with the files uploaded.\n" + fileSizeMismatchInfo;
+                logger.error("File Info Mismatch error in submission {}. \n {}", submissionId, missingFileMsg + fileSizeMismatchMsg);
                 throw new MetadataFileInfoMismatchException(missingFileMsg + fileSizeMismatchMsg);
             }
         }
     }
 
-    public Submission uploadMetadataJsonAndMarkUploaded(String submissionId, JsonNode metadataJson) {
-        SubmissionDetails submissionDetails = new SubmissionDetails(submissionId);
-        JsonNode project = metadataJson.get(PROJECT);
-        String projectTitle = project.get(TITLE).asText();
-        String projectDescription = project.get(DESCRIPTION).asText();
+    public Map<String, String> checkAllRequiredParametersProvided(JsonNode metadataJson) {
+        String projectAccession;
+        String projectTitle;
+        String projectDescription;
+        String projectTaxonomy;
 
+        ObjectNode projectNode = (ObjectNode) metadataJson.path(PROJECT);
+        projectAccession = projectNode.path(PROJECT_ACCESSION).asText("");
+
+        if (Strings.isEmpty(projectAccession)) {
+            projectTitle = projectNode.path(TITLE).asText("");
+            projectDescription = projectNode.path(DESCRIPTION).asText("");
+            projectTaxonomy = projectNode.path(TAXONOMY_ID).asText("");
+        } else {
+            Map<String, String> projectDetails = enaUtils.getProjectDetailsFromEna(projectAccession);
+            projectTitle = projectDetails.get(TITLE);
+            projectDescription = projectDetails.get(DESCRIPTION);
+            projectTaxonomy = projectDetails.get(TAXONOMY_ID);
+        }
+
+        // trim project title and project description to the specified length
+        projectTitle = projectTitle.substring(0, Math.min(projectTitle.length(), PROJECT_TITLE_LENGTH));
+        projectDescription = projectDescription.substring(0, Math.min(projectDescription.length(),
+                PROJECT_DESCRIPTION_LENGTH));
+
+        // check all required parameters are present, raise exception if anything is missing
+        if (Strings.isEmpty(projectTitle) || Strings.isEmpty(projectDescription) || Strings.isEmpty(projectTaxonomy)) {
+            List<String> missingParameters = new ArrayList<>();
+            if (Strings.isEmpty(projectTitle)) {
+                missingParameters.add("project title");
+            }
+            if (Strings.isEmpty(projectDescription)) {
+                missingParameters.add("project description");
+            }
+            if (Strings.isEmpty(projectTaxonomy)) {
+                missingParameters.add("project taxonomy");
+            }
+
+            if (Strings.isEmpty(projectAccession)) {
+                throw new RequiredFieldsMissingException("Some of the required parameters are missing from the metadata. " +
+                        "Missing parameters: " + missingParameters);
+            } else {
+                throw new RequiredFieldsMissingException("Could not retrieve some of the required parameters from ENA " +
+                        "for the project " + projectAccession + ". Missing parameters: " + missingParameters);
+            }
+        }
+
+        Map<String, String> projectDetails = new HashMap<>();
+        projectDetails.put(TITLE, projectTitle);
+        projectDetails.put(DESCRIPTION, projectDescription);
+        projectDetails.put(TAXONOMY_ID, projectTaxonomy);
+
+        return projectDetails;
+    }
+
+    public Submission uploadMetadataJsonAndMarkUploaded(String submissionId, String projectTitle,
+                                                        String projectDescription, JsonNode metadataJson) {
+        SubmissionDetails submissionDetails = new SubmissionDetails(submissionId);
         submissionDetails.setProjectTitle(projectTitle);
         submissionDetails.setProjectDescription(projectDescription);
-
         submissionDetails.setMetadataJson(metadataJson);
         submissionDetailsRepository.save(submissionDetails);
 

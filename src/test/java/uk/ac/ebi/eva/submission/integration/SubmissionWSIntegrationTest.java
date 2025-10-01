@@ -27,6 +27,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
@@ -43,8 +45,12 @@ import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.service.LoginMethod;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
+import uk.ac.ebi.eva.submission.util.EnaDownloader;
 
 import javax.persistence.EntityManager;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.StringReader;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,6 +106,9 @@ public class SubmissionWSIntegrationTest {
 
     @Autowired
     private SubmissionProcessingRepository submissionProcessingRepository;
+
+    @MockBean
+    private EnaDownloader enaDownloader;
 
     @MockBean
     private WebinTokenService webinTokenService;
@@ -569,8 +578,8 @@ public class SubmissionWSIntegrationTest {
         assertEquals(500, submissionDetails.getProjectTitle().length());
         assertEquals(5000, submissionDetails.getProjectDescription().length());
         assertThat(submissionDetails.getMetadataJson()).isNotNull();
-        assertEquals(500, submissionDetails.getMetadataJson().get("project").get("title").asText().length());
-        assertEquals(5000, submissionDetails.getMetadataJson().get("project").get("description").asText().length());
+        assertEquals(600, submissionDetails.getMetadataJson().get("project").get("title").asText().length());
+        assertEquals(5500, submissionDetails.getMetadataJson().get("project").get("description").asText().length());
 
         // assert email sent to User and Helpdesk
         assertEmailsSentToUserAndHelpDesk(true);
@@ -580,6 +589,109 @@ public class SubmissionWSIntegrationTest {
         return IntStream.range(0, length)
                 .mapToObj(i -> "A")
                 .collect(Collectors.joining());
+    }
+
+    @Test
+    @Transactional
+    public void testUploadMetadataJsonAndMarkUploaded_RetrieveProjectDetailsWithProjectAccession() throws Exception {
+        String projectAccession = "PRJEB12345";
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        String taxonomyId = "9606";
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("projectAccession", projectAccession);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf.gz");
+        fileNode2.put("fileSize", 67890L);
+
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode1 = mapper.createObjectNode();
+        analysisNode1.put("analysisAlias", "A1");
+        analysisNode1.put("evidenceType", "allele_frequency");
+        ObjectNode analysisNode2 = mapper.createObjectNode();
+        analysisNode2.put("evidenceType", "allele_frequency");
+        analysisNode2.put("analysisAlias", "A2");
+
+        analysisArrayNode.add(analysisNode1);
+        analysisArrayNode.add(analysisNode2);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("analysis", analysisArrayNode);
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        ObjectNode dataNode2 = mapper.createObjectNode();
+        dataNode2.put("name", "file2.vcf.gz");
+        dataNode2.put("size", 67890L);
+
+        dataNodeArray.add(dataNode1);
+        dataNodeArray.add(dataNode2);
+
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        String xmlString = "<PROJECT_SET>" +
+                "<PROJECT>" +
+                "<TITLE>" + projectTitle + "</TITLE>" +
+                "<DESCRIPTION>" + projectDescription + "</DESCRIPTION>" +
+                "<SUBMISSION_PROJECT>" +
+                "<ORGANISM><TAXON_ID>" + taxonomyId + "</TAXON_ID></ORGANISM>" +
+                "</SUBMISSION_PROJECT>" +
+                "</PROJECT>" +
+                "</PROJECT_SET>";
+        Document xmlDoc = builder.parse(new InputSource(new StringReader(xmlString)));
+
+        when(enaDownloader.downloadXmlFromEna(projectAccession)).thenReturn(xmlDoc);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
+        assertThat(submission.getUploadedTime()).isNotNull();
+        assertThat(submission.getCompletionTime()).isNull();
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submissionDetails.getProjectTitle()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getProjectDescription()).isEqualTo(projectDescription);
+        assertThat(submissionDetails.getMetadataJson()).isNotNull();
+        assertThat(submissionDetails.getMetadataJson().get("project").get("projectAccession").asText()).isEqualTo(projectAccession);
+
+        // assert email sent to user and helpdesk
+        assertEmailsSentToUserAndHelpDesk(false);
+
     }
 
     @Test
@@ -784,8 +896,63 @@ public class SubmissionWSIntegrationTest {
                         .content(mapper.writeValueAsString(metadataRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Some of the required fields from project title, " +
-                        "project description and taxonomy id could not be found in metadata json"));
+                .andExpect(content().string("Some of the required parameters are missing from the metadata. " +
+                        "Missing parameters: [project description, project taxonomy]"));
+    }
+
+
+    @Test
+    @Transactional
+    public void testRequiredMetadataFieldsNotProvided_CouldNotRetrieveProjectDetailsWithProjectAccession() throws Exception {
+        String projectAccession = "PRJEB12345";
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("projectAccession", projectAccession);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+
+        // create globus list directory json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+
+        dataNodeArray.add(dataNode1);
+
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        String xmlString = "<PROJECT_SET> <PROJECT> </PROJECT> </PROJECT_SET>";
+        Document xmlDoc = builder.parse(new InputSource(new StringReader(xmlString)));
+
+        when(enaDownloader.downloadXmlFromEna(projectAccession)).thenReturn(xmlDoc);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Could not retrieve some of the required parameters from ENA " +
+                        "for the project " + projectAccession + ". " +
+                        "Missing parameters: [project title, project description, project taxonomy]"));
     }
 
 
