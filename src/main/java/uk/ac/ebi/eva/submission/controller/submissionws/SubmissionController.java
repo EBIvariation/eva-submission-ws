@@ -29,6 +29,7 @@ import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
+import uk.ac.ebi.eva.submission.util.Utils;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -46,6 +47,9 @@ public class SubmissionController extends BaseController {
     public static final String DESCRIPTION = "description";
     public static final String TAXONOMY_ID = "taxId";
     public static final String ANALYSIS = "analysis";
+    public static final String SCHEMA = "$schema";
+
+    public static final String DEPRECATED_VERSION = "v0.5.0";
 
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
@@ -117,6 +121,13 @@ public class SubmissionController extends BaseController {
                     HttpStatus.BAD_REQUEST);
         }
         try {
+            // check if the User is using a deprecated version of eva-sub-cli
+            boolean deprecatedVersion = true;
+            String version = submissionService.getVersionFromMetadataJson(metadataJson);
+            if (version != null && Utils.compareVersions(version, DEPRECATED_VERSION) > 0) {
+                deprecatedVersion = false;
+            }
+
             // check if there is a difference between the files uploaded and files mentioned in metadata
             submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
 
@@ -137,7 +148,7 @@ public class SubmissionController extends BaseController {
 
             // send notification to user
             submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
-                    SubmissionStatus.UPLOADED, needConsentStatement, true);
+                    SubmissionStatus.UPLOADED, needConsentStatement, deprecatedVersion, true);
             // send notification to EVA HelpDesk
             submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
                     projectTitle);

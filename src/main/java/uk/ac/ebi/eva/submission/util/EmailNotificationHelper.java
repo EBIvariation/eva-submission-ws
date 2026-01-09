@@ -22,7 +22,8 @@ public class EmailNotificationHelper {
 
     public String getTextForSubmissionStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
                                                    String projectTitle, SubmissionStatus submissionStatus,
-                                                   boolean needConsentStatement, boolean success) {
+                                                   boolean needConsentStatement, boolean deprecatedVersion,
+                                                   boolean success) {
         String result;
         String resultColor;
         String notificationText;
@@ -60,6 +61,18 @@ public class EmailNotificationHelper {
                     .addText(" section.")
                     .addGap(1)
                     .addLink(evaConsentStatement, "Link to Consent Statement");
+        }
+
+        if (deprecatedVersion) {
+            htmlHelper
+                    .addGap(2)
+                    .addBoldTextWithColor("Deprecation Warning: ", "red")
+                    .addLineBreak()
+                    .addText("You are using a deprecated version of eva-sub-cli. Please upgrade to the latest version to avoid future submission failures.")
+                    .addLineBreak()
+                    .addText("Click ")
+                    .addLink("https://github.com/EBIvariation/eva-sub-cli/releases/latest", "here")
+                    .addText(" to checkout the latest release.");
         }
 
         notificationText = htmlHelper.addGap(2).build();
