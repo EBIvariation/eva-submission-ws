@@ -25,6 +25,7 @@ import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
+import uk.ac.ebi.eva.submission.exception.UnsupportedVersionException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
@@ -126,8 +127,10 @@ public class SubmissionController extends BaseController {
             String version = submissionService.getVersionFromMetadataJson(metadataJson);
             if (version != null && Utils.compareVersions(version, DEPRECATED_VERSION) > 0) {
                 deprecatedVersion = false;
+            } else if (false) {
+                // TODO: once we are ready, update this else if to else, so that we can throw an exception in case user is using unsupported version.
+                throw new UnsupportedVersionException(version);
             }
-
             // check if there is a difference between the files uploaded and files mentioned in metadata
             submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
 
@@ -154,7 +157,7 @@ public class SubmissionController extends BaseController {
                     projectTitle);
 
             return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
-        } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException ex) {
+        } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException | UnsupportedVersionException ex) {
             logger.error("Error occurred while processing the submission.", ex);
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (Exception e) {

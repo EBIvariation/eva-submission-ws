@@ -93,7 +93,7 @@ public class EmailNotificationHelperTest {
                 "<br /><br /><br />" +
                 "<b><span style=\"color:red;\">Deprecation Warning: </span></b>" +
                 "<br />You are using a deprecated version of eva-sub-cli. Please upgrade to the latest version to avoid future submission failures.<br />" +
-                "Click <a href=\"https://github.com/EBIvariation/eva-sub-cli/releases/latest\">here</a> to checkout the latest release." +
+                "Click <a href=\"https://github.com/EBIvariation/eva-sub-cli/releases/latest\">here</a> to checkout the latest release or update with conda." +
                 "<br /><br /><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
@@ -125,7 +125,7 @@ public class EmailNotificationHelperTest {
                 "<br /><br /><a href=\"https://docs.google.com/document/d/1UaRmimAe919IZYIH55mDXMe-4sHsRVqaP4moqx2IYE4\">Link to Consent Statement</a><br /><br /><br />" +
                 "<b><span style=\"color:red;\">Deprecation Warning: </span></b>" +
                 "<br />You are using a deprecated version of eva-sub-cli. Please upgrade to the latest version to avoid future submission failures.<br />" +
-                "Click <a href=\"https://github.com/EBIvariation/eva-sub-cli/releases/latest\">here</a> to checkout the latest release." +
+                "Click <a href=\"https://github.com/EBIvariation/eva-sub-cli/releases/latest\">here</a> to checkout the latest release or update with conda." +
                 "<br /><br /><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
                 "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> </span><br />" +

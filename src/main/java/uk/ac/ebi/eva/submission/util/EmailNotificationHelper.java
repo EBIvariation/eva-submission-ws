@@ -72,7 +72,7 @@ public class EmailNotificationHelper {
                     .addLineBreak()
                     .addText("Click ")
                     .addLink("https://github.com/EBIvariation/eva-sub-cli/releases/latest", "here")
-                    .addText(" to checkout the latest release.");
+                    .addText(" to checkout the latest release or update with conda.");
         }
 
         notificationText = htmlHelper.addGap(2).build();

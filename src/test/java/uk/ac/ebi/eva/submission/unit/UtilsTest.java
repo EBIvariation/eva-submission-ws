@@ -22,9 +22,9 @@ class UtilsTest {
         assertEquals("v1.2.3-SNAPSHOT", version);
 
         // should extract the DEV version
-        url = "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v2.10.7.dev/schema.json";
+        url = "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v2.10.7.dev1/schema.json";
         version = Utils.extractVersionFromSchemaUrl(url);
-        assertEquals("v2.10.7.dev", version);
+        assertEquals("v2.10.7.dev1", version);
     }
 
     @Test
