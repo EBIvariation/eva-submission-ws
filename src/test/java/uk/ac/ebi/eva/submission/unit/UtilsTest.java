@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UtilsTest {
 
     @Test
-    void shouldExtractVersion() {
+    void testExtractVersionFromSchemaURL_shouldExtractVersion() {
         // should extract the RELEASE version
         String url = "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.4.14/eva_sub_cli/etc/eva_schema.json";
         String version = Utils.extractVersionFromSchemaUrl(url);
@@ -28,7 +28,7 @@ class UtilsTest {
     }
 
     @Test
-    void shouldThrowIfVersionNotPresentInUrl() {
+    void testExtractVersionFromSchemaURL_shouldThrowException() {
         String url = "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/main/schema.json";
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -39,7 +39,7 @@ class UtilsTest {
     }
 
     @Test
-    void shouldReturnZeroForEqualVersions() {
+    void testCompareVersions() {
         assertEquals(0, Utils.compareVersions("v1.2.3", "v1.2.3"));
         assertTrue(Utils.compareVersions("v2.0.0", "v1.9.9") > 0);
         assertTrue(Utils.compareVersions("v1.10.0", "v1.2.9") > 0);

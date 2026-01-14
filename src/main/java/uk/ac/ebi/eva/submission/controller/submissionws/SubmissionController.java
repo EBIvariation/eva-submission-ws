@@ -51,6 +51,7 @@ public class SubmissionController extends BaseController {
     public static final String SCHEMA = "$schema";
 
     public static final String DEPRECATED_VERSION = "v0.5.0";
+    public static final String UNSUPPORTED_VERSION = "v0.4.13";
 
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
@@ -129,6 +130,9 @@ public class SubmissionController extends BaseController {
                 deprecatedVersion = false;
             } else if (false) {
                 // TODO: once we are ready, update this else if to else, so that we can throw an exception in case user is using unsupported version.
+                if (version == null || version.isEmpty()) {
+                    version = "< " + UNSUPPORTED_VERSION;
+                }
                 throw new UnsupportedVersionException(version);
             }
             // check if there is a difference between the files uploaded and files mentioned in metadata
