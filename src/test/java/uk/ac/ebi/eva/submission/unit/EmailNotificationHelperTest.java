@@ -45,7 +45,7 @@ public class EmailNotificationHelperTest {
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "submission12345", "project123", SubmissionStatus.UPLOADED, false, true);
+                "submission12345", "project123", SubmissionStatus.UPLOADED, false, false, true);
 
         assertEquals(expectedText, actualText);
     }
@@ -73,7 +73,66 @@ public class EmailNotificationHelperTest {
                 "<span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "submission12345", "project123", SubmissionStatus.UPLOADED, true, true);
+                "submission12345", "project123", SubmissionStatus.UPLOADED, true, false, true);
+
+        assertEquals(expectedText, actualText);
+    }
+
+    @Test
+    public void testGetTextForSubmissionStatusUpdateSuccess_withDeprecatedVersion() {
+        SubmissionAccount submissionAccount = new SubmissionAccount("johndoe@example.com",
+                LoginMethod.WEBIN.toString(), "John", "Doe", "john@example.com");
+        String expectedText = "Dear John Doe," +
+                "<br /><br />" +
+                "Here is the update for your submission: " +
+                "<br /><br />" +
+                "Submission ID: submission12345<br />" +
+                "Project Title: project123<br />" +
+                "Submission Status: UPLOADED<br />" +
+                "Result: <b><span style=\"color:green;\">SUCCESS</span></b>" +
+                "<br /><br /><br />" +
+                "<b><span style=\"color:red;\">Deprecation Warning: </span></b>" +
+                "<br />You are using a deprecated version of eva-sub-cli. Please upgrade to the latest version to avoid future submission failures.<br />" +
+                "Click <a href=\"https://github.com/EBIvariation/eva-sub-cli/releases/latest\">here</a> to checkout the latest release or update with conda." +
+                "<br /><br /><br />" +
+                "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
+                "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> " +
+                "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
+
+        String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
+                "submission12345", "project123", SubmissionStatus.UPLOADED, false, true, true);
+
+        assertEquals(expectedText, actualText);
+    }
+
+    @Test
+    public void testGetTextForSubmissionStatusUpdateSuccess_withHumanTaxonomyAndDeprecatedVersion() {
+        SubmissionAccount submissionAccount = new SubmissionAccount("johndoe@example.com",
+                LoginMethod.WEBIN.toString(), "John", "Doe", "john@example.com");
+        String expectedText = "Dear John Doe," +
+                "<br /><br />" +
+                "Here is the update for your submission: " +
+                "<br /><br />" +
+                "Submission ID: submission12345<br />" +
+                "Project Title: project123<br />" +
+                "Submission Status: UPLOADED<br />" +
+                "Result: <b><span style=\"color:green;\">SUCCESS</span></b>" +
+                "<br /><br /><br />" +
+                "<b><span style=\"color:black;\">" +
+                "Note: </span></b>Your submission contains human genotypes for which we require a Consent Statement. " +
+                "Please copy the template provided in the link below, fill it, sign it and return it to <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a>. " +
+                "For more info, please see our <a href=\"https://www.ebi.ac.uk/eva/?Help#submissionPanel&link=consent-statement-for-human-genotype-data\">help</a> section." +
+                "<br /><br /><a href=\"https://docs.google.com/document/d/1UaRmimAe919IZYIH55mDXMe-4sHsRVqaP4moqx2IYE4\">Link to Consent Statement</a><br /><br /><br />" +
+                "<b><span style=\"color:red;\">Deprecation Warning: </span></b>" +
+                "<br />You are using a deprecated version of eva-sub-cli. Please upgrade to the latest version to avoid future submission failures.<br />" +
+                "Click <a href=\"https://github.com/EBIvariation/eva-sub-cli/releases/latest\">here</a> to checkout the latest release or update with conda." +
+                "<br /><br /><br />" +
+                "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +
+                "<span style=\"font-size:10px;\"> <a href=\"mailto:eva-helpdesk@ebi.ac.uk\">eva-helpdesk@ebi.ac.uk</a> </span><br />" +
+                "<span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
+
+        String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
+                "submission12345", "project123", SubmissionStatus.UPLOADED, true, true, true);
 
         assertEquals(expectedText, actualText);
     }
@@ -96,7 +155,7 @@ public class EmailNotificationHelperTest {
                 "</span><br /><span style=\"font-size:10px;\">European Variation Archive: EMBL-EBI</span>";
 
         String actualText = emailNotificationHelper.getTextForSubmissionStatusUpdate(submissionAccount,
-                "12345", "project123", SubmissionStatus.UPLOADED, false, false);
+                "12345", "project123", SubmissionStatus.UPLOADED, false, false, false);
 
         assertEquals(expectedText, actualText);
     }

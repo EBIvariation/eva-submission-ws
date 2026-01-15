@@ -317,6 +317,188 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
+    public void testUploadMetadataJsonAndMarkUploaded_ContainsNonDeprecatedVersion() throws Exception {
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        int taxonomyId = 9606;
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", projectTitle);
+        projectNode.put("description", projectDescription);
+        projectNode.put("taxId", taxonomyId);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf.gz");
+        fileNode2.put("fileSize", 67890L);
+
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode1 = mapper.createObjectNode();
+        analysisNode1.put("analysisAlias", "A1");
+        analysisNode1.put("evidenceType", "allele_frequency");
+        ObjectNode analysisNode2 = mapper.createObjectNode();
+        analysisNode2.put("evidenceType", "allele_frequency");
+        analysisNode2.put("analysisAlias", "A2");
+
+        analysisArrayNode.add(analysisNode1);
+        analysisArrayNode.add(analysisNode2);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        ObjectNode dataNode2 = mapper.createObjectNode();
+        dataNode2.put("name", "file2.vcf.gz");
+        dataNode2.put("size", 67890L);
+
+        dataNodeArray.add(dataNode1);
+        dataNodeArray.add(dataNode2);
+
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
+        assertThat(submission.getUploadedTime()).isNotNull();
+        assertThat(submission.getCompletionTime()).isNull();
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submissionDetails.getProjectTitle()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getProjectDescription()).isEqualTo(projectDescription);
+        assertThat(submissionDetails.getMetadataJson()).isNotNull();
+        assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
+
+        // assert email sent to user and helpdesk
+        assertEmailsSentToUserAndHelpDesk(false, false);
+
+    }
+
+    @Test
+    @Transactional
+    public void testUploadMetadataJsonAndMarkUploaded_ContainsDeprecatedVersion() throws Exception {
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        int taxonomyId = 9606;
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // create metadata json
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", projectTitle);
+        projectNode.put("description", projectDescription);
+        projectNode.put("taxId", taxonomyId);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf.gz");
+        fileNode2.put("fileSize", 67890L);
+
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode1 = mapper.createObjectNode();
+        analysisNode1.put("analysisAlias", "A1");
+        analysisNode1.put("evidenceType", "allele_frequency");
+        ObjectNode analysisNode2 = mapper.createObjectNode();
+        analysisNode2.put("evidenceType", "allele_frequency");
+        analysisNode2.put("analysisAlias", "A2");
+
+        analysisArrayNode.add(analysisNode1);
+        analysisArrayNode.add(analysisNode2);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.3.9/eva_sub_cli/etc/eva_schema.json");
+
+        // create Globus list directory result json
+        ObjectNode globusRootNode = mapper.createObjectNode();
+
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        ObjectNode dataNode2 = mapper.createObjectNode();
+        dataNode2.put("name", "file2.vcf.gz");
+        dataNode2.put("size", 67890L);
+
+        dataNodeArray.add(dataNode1);
+        dataNodeArray.add(dataNode2);
+
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        Submission submission = submissionRepository.findBySubmissionId(submissionId);
+        assertThat(submission).isNotNull();
+        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
+        assertThat(submission.getUploadedTime()).isNotNull();
+        assertThat(submission.getCompletionTime()).isNull();
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getSubmissionId()).isEqualTo(submissionId);
+        assertThat(submissionDetails.getProjectTitle()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getProjectDescription()).isEqualTo(projectDescription);
+        assertThat(submissionDetails.getMetadataJson()).isNotNull();
+        assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
+        assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
+
+        // assert email sent to user and helpdesk
+        assertEmailsSentToUserAndHelpDesk(false, true);
+
+    }
+
+    @Test
+    @Transactional
     public void testUploadMetadataJsonAndMarkUploaded_ConsentStatementRequired_ContainsEvidenceTypeGenotype() throws Exception {
         String projectTitle = "test_project_title";
         String projectDescription = "test_project_description";
@@ -401,7 +583,7 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
 
         // assert email sent to user and helpdesk
-        assertEmailsSentToUserAndHelpDesk(true);
+        assertEmailsSentToUserAndHelpDesk(true, true);
 
     }
 
@@ -492,7 +674,7 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
 
         // assert email sent to user and helpdesk
-        assertEmailsSentToUserAndHelpDesk(false);
+        assertEmailsSentToUserAndHelpDesk(false, true);
 
     }
 
@@ -582,7 +764,7 @@ public class SubmissionWSIntegrationTest {
         assertEquals(5500, submissionDetails.getMetadataJson().get("project").get("description").asText().length());
 
         // assert email sent to User and Helpdesk
-        assertEmailsSentToUserAndHelpDesk(true);
+        assertEmailsSentToUserAndHelpDesk(true, true);
     }
 
     private String buildLargeStringOfLength(int length) {
@@ -690,7 +872,7 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getMetadataJson().get("project").get("projectAccession").asText()).isEqualTo(projectAccession);
 
         // assert email sent to user and helpdesk
-        assertEmailsSentToUserAndHelpDesk(false);
+        assertEmailsSentToUserAndHelpDesk(false, true);
 
     }
 
@@ -1300,7 +1482,7 @@ public class SubmissionWSIntegrationTest {
 
     }
 
-    private void assertEmailsSentToUserAndHelpDesk(boolean shouldContainConsentStatement) throws JsonProcessingException {
+    private void assertEmailsSentToUserAndHelpDesk(boolean shouldContainConsentStatement, boolean deprecatedVersion) throws JsonProcessingException {
         String mailhogUrl = "http://" + mailhog.getHost() + ":" + mailhog.getMappedPort(8025) + "/api/v2/messages";
         RestTemplate restTemplate = new RestTemplate();
         JsonNode mailHogResponse = new ObjectMapper().readTree(restTemplate.getForObject(mailhogUrl, String.class));
@@ -1353,6 +1535,12 @@ public class SubmissionWSIntegrationTest {
             assertTrue(body.replaceAll("=\\r?\\n", "").contains("Your submission contains human genotypes for which we require a Consent Statement"));
         } else {
             assertFalse(body.replaceAll("=\\r?\\n", "").contains("Your submission contains human genotypes for which we require a Consent Statement"));
+        }
+
+        if (deprecatedVersion) {
+            assertTrue(body.replaceAll("=\\r?\\n", "").contains("You are using a deprecated version of eva-sub-cli. Please upgrade to the latest version to avoid future submission failures."));
+        } else {
+            assertFalse(body.replaceAll("=\\r?\\n", "").contains("You are using a deprecated version of eva-sub-cli. Please upgrade to the latest version to avoid future submission failures."));
         }
     }
 

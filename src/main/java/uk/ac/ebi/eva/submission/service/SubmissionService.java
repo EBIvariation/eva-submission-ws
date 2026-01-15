@@ -26,6 +26,7 @@ import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.EnaUtils;
 import uk.ac.ebi.eva.submission.util.MailSender;
+import uk.ac.ebi.eva.submission.util.Utils;
 
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -41,6 +42,7 @@ import java.util.stream.StreamSupport;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.DESCRIPTION;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.PROJECT;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.PROJECT_ACCESSION;
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.SCHEMA;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.TAXONOMY_ID;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.TITLE;
 import static uk.ac.ebi.eva.submission.entity.SubmissionDetails.PROJECT_DESCRIPTION_LENGTH;
@@ -174,6 +176,21 @@ public class SubmissionService {
         }
     }
 
+    public String getVersionFromMetadataJson(JsonNode metadataJson) {
+        String version = null;
+
+        String schema = metadataJson.path(SCHEMA).asText(null);
+        if (schema != null) {
+            try {
+                version = Utils.extractVersionFromSchemaUrl(schema);
+            } catch (IllegalArgumentException ex) {
+                logger.error("Version not present in schema url: {}", schema);
+            }
+        }
+
+        return version;
+    }
+
     public Map<String, String> checkAllRequiredParametersProvided(JsonNode metadataJson) {
         String projectAccession;
         String projectTitle;
@@ -278,11 +295,11 @@ public class SubmissionService {
 
     public void sendMailNotificationToUserForStatusUpdate(SubmissionAccount submissionAccount, String submissionId,
                                                           String projectTitle, SubmissionStatus submissionStatus,
-                                                          boolean needConsentStatement, boolean success) {
+                                                          boolean needConsentStatement, boolean deprecatedVersion, boolean success) {
         String sendTo = submissionAccount.getPrimaryEmail();
         String subject = emailHelper.getSubjectForSubmissionStatusUpdate(submissionStatus, success);
         String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, projectTitle,
-                submissionStatus, needConsentStatement, success);
+                submissionStatus, needConsentStatement, deprecatedVersion, success);
         mailSender.sendEmail(emailHelper.getEvaHelpdeskEmail(), sendTo, subject, body);
     }
 
