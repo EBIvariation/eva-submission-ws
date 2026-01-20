@@ -40,10 +40,24 @@ public class LsriTokenService {
     private final Logger logger = LoggerFactory.getLogger(LsriTokenService.class);
 
     public SubmissionAccount getLsriUserAccountFromToken(String userToken) {
-        // The only definitive attribute we can expect from querying userInfo is the "sub" attribute
-        // See https://connect2id.com/products/server/docs/api/userinfo#claims
-        String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
-        return createLSRIUserAccount(restJsonResponse);
+        logger.debug("Attempting LSRI token validation");
+        try {
+            // The only definitive attribute we can expect from querying userInfo is the "sub" attribute
+            // See https://connect2id.com/products/server/docs/api/userinfo#claims
+            String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
+            if (restJsonResponse == null) {
+                logger.debug("LSRI token validation failed: no response from user info endpoint");
+                return null;
+            }
+            SubmissionAccount account = createLSRIUserAccount(restJsonResponse);
+            if (account != null) {
+                logger.debug("LSRI token validation successful for account: {}", account.getId());
+            }
+            return account;
+        } catch (Exception e) {
+            logger.debug("LSRI token validation failed: {}", e.getMessage());
+            return null;
+        }
     }
 
     public SubmissionAccount createLSRIUserAccount(String jsonResponse) {
