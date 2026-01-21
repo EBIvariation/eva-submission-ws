@@ -1,6 +1,8 @@
 package uk.ac.ebi.eva.submission.service;
 
 import com.google.gson.Gson;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
@@ -13,13 +15,24 @@ import java.util.stream.Collectors;
 
 @Service
 public class WebinTokenService {
+    private final Logger logger = LoggerFactory.getLogger(WebinTokenService.class);
 
     @Value("${webin.userinfo.url}")
     private String userInfoUrl;
 
     public SubmissionAccount getWebinUserAccountFromToken(String userToken) {
-        String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
-        return createWebinUserAccount(restJsonResponse);
+        logger.debug("Attempting Webin token validation");
+        try {
+            String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
+            if (restJsonResponse == null) {
+                logger.warn("Webin token validation failed: no response from user info endpoint");
+                return null;
+            }
+            return createWebinUserAccount(restJsonResponse);
+        } catch (Exception e) {
+            logger.warn("Webin token validation failed: {}", e.getMessage());
+            return null;
+        }
     }
 
     public SubmissionAccount createWebinUserAccount(String jsonResponse) {

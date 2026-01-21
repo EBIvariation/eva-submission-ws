@@ -90,11 +90,15 @@ public class SubmissionController extends BaseController {
     })
     @PostMapping("submission/initiate")
     public ResponseEntity<?> initiateSubmission(@RequestHeader("Authorization") String bearerToken) {
+        logger.info("Initiate submission endpoint called");
         SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
         if (Objects.isNull(submissionAccount)) {
+            logger.warn("Initiate submission failed: authentication unsuccessful");
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
+        logger.info("Initiate submission: authenticated user {}", submissionAccount.getId());
         Submission submission = this.submissionService.initiateSubmission(submissionAccount);
+        logger.info("Initiate submission: submission Id {}", submission.getSubmissionId());
         return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
     }
 
@@ -109,10 +113,19 @@ public class SubmissionController extends BaseController {
     public ResponseEntity<?> markSubmissionUploaded(@RequestHeader("Authorization") String bearerToken,
                                                     @PathVariable("submissionId") String submissionId,
                                                     @RequestBody JsonNode metadataJson) {
+        logger.info("Mark submission uploaded endpoint called for submissionId: {}", submissionId);
         SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
-        if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
+        if (Objects.isNull(submissionAccount)) {
+            logger.warn("Mark submission uploaded failed for submissionId {}: authentication unsuccessful", submissionId);
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
+        if (!submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
+            logger.warn("Mark submission uploaded failed for submissionId {}: user {} does not have access to this submission",
+                    submissionId, submissionAccount.getId());
+            return new ResponseEntity<>("Unauthorized: Account " + submissionAccount.getId() +
+                                        " does not have access to submissionId " + submissionId, HttpStatus.UNAUTHORIZED);
+        }
+        logger.info("Mark submission uploaded: authenticated user {} for submissionId {}", submissionAccount.getId(), submissionId);
 
         String submissionStatus = submissionService.getSubmissionStatus(submissionId);
         if (!Objects.equals(submissionStatus, SubmissionStatus.OPEN.toString())) {
