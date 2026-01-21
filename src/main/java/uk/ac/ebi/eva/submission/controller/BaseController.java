@@ -40,11 +40,6 @@ public class BaseController {
             logger.debug("Webin authentication failed, attempting LSRI authentication");
             submissionAccount = this.lsriTokenService.getLsriUserAccountFromToken(userToken);
         }
-        if (Objects.isNull(submissionAccount)) {
-            logger.warn("Authentication failed: Both Webin and LSRI token validation failed");
-        } else {
-            logger.debug("Authentication successful for account: {}", submissionAccount.getId());
-        }
         return submissionAccount;
     }
 

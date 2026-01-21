@@ -25,16 +25,12 @@ public class WebinTokenService {
         try {
             String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
             if (restJsonResponse == null) {
-                logger.debug("Webin token validation failed: no response from user info endpoint");
+                logger.warn("Webin token validation failed: no response from user info endpoint");
                 return null;
             }
-            SubmissionAccount account = createWebinUserAccount(restJsonResponse);
-            if (account != null) {
-                logger.debug("Webin token validation successful for account: {}", account.getId());
-            }
-            return account;
+            return createWebinUserAccount(restJsonResponse);
         } catch (Exception e) {
-            logger.debug("Webin token validation failed: {}", e.getMessage());
+            logger.warn("Webin token validation failed: {}", e.getMessage());
             return null;
         }
     }

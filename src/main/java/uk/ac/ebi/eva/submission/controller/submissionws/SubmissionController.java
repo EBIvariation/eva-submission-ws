@@ -98,6 +98,7 @@ public class SubmissionController extends BaseController {
         }
         logger.info("Initiate submission: authenticated user {}", submissionAccount.getId());
         Submission submission = this.submissionService.initiateSubmission(submissionAccount);
+        logger.info("Initiate submission: submission Id {}", submission.getSubmissionId());
         return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
     }
 

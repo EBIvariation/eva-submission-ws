@@ -46,16 +46,12 @@ public class LsriTokenService {
             // See https://connect2id.com/products/server/docs/api/userinfo#claims
             String restJsonResponse = TokenServiceUtil.getUserInfoRestResponse(userToken, this.userInfoUrl);
             if (restJsonResponse == null) {
-                logger.debug("LSRI token validation failed: no response from user info endpoint");
+                logger.warn("LSRI token validation failed: no response from user info endpoint");
                 return null;
             }
-            SubmissionAccount account = createLSRIUserAccount(restJsonResponse);
-            if (account != null) {
-                logger.debug("LSRI token validation successful for account: {}", account.getId());
-            }
-            return account;
+            return createLSRIUserAccount(restJsonResponse);
         } catch (Exception e) {
-            logger.debug("LSRI token validation failed: {}", e.getMessage());
+            logger.warn("LSRI token validation failed: {}", e.getMessage());
             return null;
         }
     }

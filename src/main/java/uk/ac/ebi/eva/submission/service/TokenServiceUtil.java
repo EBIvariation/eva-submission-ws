@@ -28,10 +28,10 @@ public class TokenServiceUtil {
             JsonNode responseJson = objectMapper.readTree(response.getBody());
             return responseJson.toString();
         } catch (HttpClientErrorException e) {
-            logger.debug("Token validation HTTP error: status={}, message={}", e.getStatusCode(), e.getMessage());
+            logger.warn("Token validation HTTP error: status={}, message={}", e.getStatusCode(), e.getMessage());
             return null;
         } catch (Exception e) {
-            logger.debug("Token validation failed while calling user info endpoint: {}", e.getMessage());
+            logger.warn("Token validation failed while calling user info endpoint: {}", e.getMessage());
             return null;
         }
     }
