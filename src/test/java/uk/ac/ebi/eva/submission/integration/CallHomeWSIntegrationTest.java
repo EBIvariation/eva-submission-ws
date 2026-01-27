@@ -92,8 +92,6 @@ public class CallHomeWSIntegrationTest {
         assertThat(callHomeEventEntity.getRuntimeSeconds()).isEqualTo(123);
         assertThat(callHomeEventEntity.getExecutor()).isEqualTo("Native");
         assertThat(callHomeEventEntity.getTasks()).isEqualTo("VALIDATION,SUBMIT");
-        assertThat(callHomeEventEntity.getTrimDown()).isEqualTo(Boolean.FALSE);
-        assertThat(callHomeEventEntity.getUserName()).isEqualTo("test-user-name");
 
         assertThat(callHomeEventEntity.getRawPayload().toString()).isEqualTo(callHomeJsonRootNode.toString());
     }
@@ -105,7 +103,6 @@ public class CallHomeWSIntegrationTest {
 
         ObjectNode callHomeJsonRootNode = getCallHomeJson(mapper);
         callHomeJsonRootNode.putNull("eventType");
-        callHomeJsonRootNode.putNull("userName");
 
         mvc.perform(post("/v1/call-home/events")
                         .content(mapper.writeValueAsString(callHomeJsonRootNode))
@@ -128,8 +125,6 @@ public class CallHomeWSIntegrationTest {
         assertThat(callHomeEventEntity.getRuntimeSeconds()).isEqualTo(123);
         assertThat(callHomeEventEntity.getExecutor()).isEqualTo("Native");
         assertThat(callHomeEventEntity.getTasks()).isEqualTo("VALIDATION,SUBMIT");
-        assertThat(callHomeEventEntity.getTrimDown()).isEqualTo(Boolean.FALSE);
-        assertThat(callHomeEventEntity.getUserName()).isNull();
 
         assertThat(callHomeEventEntity.getRawPayload().toString()).isEqualTo(callHomeJsonRootNode.toString());
     }
@@ -144,9 +139,6 @@ public class CallHomeWSIntegrationTest {
         rootNode.put("runtimeSeconds", 123);
         rootNode.put("executor", "Native");
         rootNode.put("tasks", "VALIDATION,SUBMIT");
-        rootNode.put("trimDown", "false");
-        rootNode.put("userName", "test-user-name");
-
 
         return rootNode;
     }

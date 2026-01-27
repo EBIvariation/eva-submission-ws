@@ -36,8 +36,6 @@ public class CallHomeService {
         callHomeEventEntity.setRuntimeSeconds(get(callHomeEventJson, "runtimeSeconds", Integer.class));
         callHomeEventEntity.setExecutor(get(callHomeEventJson, "executor", String.class));
         callHomeEventEntity.setTasks(get(callHomeEventJson, "tasks", String.class));
-        callHomeEventEntity.setTrimDown(get(callHomeEventJson, "trimDown", Boolean.class));
-        callHomeEventEntity.setUserName(get(callHomeEventJson, "userName", String.class));
         callHomeEventEntity.setRawPayload(callHomeEventJson);
 
         return callHomeEventEntity;

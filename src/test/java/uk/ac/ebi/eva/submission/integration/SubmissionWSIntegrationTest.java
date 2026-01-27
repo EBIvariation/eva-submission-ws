@@ -1504,6 +1504,10 @@ public class SubmissionWSIntegrationTest {
                 .collect(Collectors.toList());
 
         assertEquals(1, helpdeskEmails.size());
+        String helpDeskEmailContent = helpdeskEmails.get(0).path("Content").path("Body").asText();
+        assertTrue(helpDeskEmailContent.replaceAll("=\\r?\\n", "").contains("User Primary Email: " + webinUserPrimaryEmail));
+        assertTrue(helpDeskEmailContent.replaceAll("=\\r?\\n", "").contains("User Secondary Emails: " +
+                String.join(", ", webinUserSecondaryEmails)));
 
         // Assert email sent to Webin User
         List<JsonNode> userEmails = emailList.stream()

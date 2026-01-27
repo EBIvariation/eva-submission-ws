@@ -42,12 +42,6 @@ public class CallHomeEventEntity {
     @Column(name = "tasks")
     private String tasks;
 
-    @Column(name = "trim_down")
-    private Boolean trimDown;
-
-    @Column(name = "user_name")
-    private String userName;
-
     @Column(name = "raw_payload", columnDefinition = "jsonb", nullable = false)
     private JsonNode rawPayload;
 
@@ -120,22 +114,6 @@ public class CallHomeEventEntity {
 
     public void setTasks(String tasks) {
         this.tasks = tasks;
-    }
-
-    public Boolean getTrimDown() {
-        return trimDown;
-    }
-
-    public void setTrimDown(Boolean trimDown) {
-        this.trimDown = trimDown;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
     }
 
     public JsonNode getRawPayload() {
