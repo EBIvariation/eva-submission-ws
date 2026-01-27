@@ -52,7 +52,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -123,7 +123,8 @@ public class SubmissionWSIntegrationTest {
     private GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
     private static String evaHelpdeskEmail = "test_eva_helpdesk@email.com";
-    private static String webinUserEmail = "webinUserId@webin.com";
+    private static String webinUserPrimaryEmail = "webinUserId@webin.com";
+    private static List<String> webinUserSecondaryEmails = Arrays.asList("webinUserId_1@webin.com", "webinUserId_2@webin.com");
     private String userToken = "webinUserToken";
     private SubmissionAccount webinUserAccount = getWebinUserAccount();
     private String submissionId;
@@ -1391,11 +1392,8 @@ public class SubmissionWSIntegrationTest {
         String loginType = LoginMethod.WEBIN.getLoginType();
         String firstName = "webin_first_name";
         String lastName = "webin_last_name";
-        String primaryEmail = webinUserEmail;
-        List<String> secondaryEmails = new ArrayList<>();
-        secondaryEmails.add("webinUserId_1@webin.com");
-        secondaryEmails.add("webinUserId_2@webin.com");
-        return new SubmissionAccount(accountId, loginType, firstName, lastName, primaryEmail, secondaryEmails);
+        return new SubmissionAccount(accountId, loginType, firstName, lastName,
+                webinUserPrimaryEmail, webinUserSecondaryEmails);
     }
 
     private SubmissionAccount getWebinUserAccountWithNullUserName() {
@@ -1403,11 +1401,9 @@ public class SubmissionWSIntegrationTest {
         String loginType = LoginMethod.WEBIN.getLoginType();
         String firstName = null;
         String lastName = null;
-        String primaryEmail = webinUserEmail;
-        List<String> secondaryEmails = new ArrayList<>();
-        secondaryEmails.add("webinUserId_1@webin.com");
-        secondaryEmails.add("webinUserId_2@webin.com");
-        return new SubmissionAccount(accountId, loginType, firstName, lastName, primaryEmail, secondaryEmails);
+        String primaryEmail = webinUserPrimaryEmail;
+        return new SubmissionAccount(accountId, loginType, firstName, lastName,
+                webinUserPrimaryEmail, webinUserSecondaryEmails);
     }
 
     private String createNewSubmissionEntry(SubmissionAccount submissionAccount, SubmissionStatus status) {
@@ -1517,9 +1513,14 @@ public class SubmissionWSIntegrationTest {
 
                     List<String> toList = getStringList(headers.path("To"));
                     List<String> fromList = getStringList(headers.path("From"));
+                    List<String> ccList = getStringList(headers.path("Cc")).stream()
+                            .flatMap(s -> Arrays.stream(s.split(",")).map(String::trim))
+                            .collect(Collectors.toList());
                     List<String> subjectList = getStringList(headers.path("Subject"));
 
-                    return toList.contains(webinUserEmail)
+                    return toList.contains(webinUserPrimaryEmail)
+                            && ccList.contains(webinUserSecondaryEmails.get(0))
+                            && ccList.contains(webinUserSecondaryEmails.get(1))
                             && fromList.contains(evaHelpdeskEmail)
                             && subjectList.stream().anyMatch(subject ->
                             subject.contains("EVA Submission Update: UPLOADED SUCCESS"))
