@@ -8,6 +8,7 @@ import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -54,6 +55,7 @@ public class SubmissionAccount {
         this.firstName = firstName != null ? firstName : "";
         this.lastName = lastName != null ? lastName : "";
         this.primaryEmail = primaryEmail;
+        this.secondaryEmails = new ArrayList<>();
     }
 
     public SubmissionAccount(String userId, String loginType, String firstName, String lastName, String primaryEmail,
