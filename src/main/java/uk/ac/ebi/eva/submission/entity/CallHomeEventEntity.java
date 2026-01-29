@@ -5,18 +5,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(schema = "eva_submissions", name = "call_home_event")
 public class CallHomeEventEntity {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "deployment_id")
     private String deploymentId;
@@ -48,7 +48,7 @@ public class CallHomeEventEntity {
     public CallHomeEventEntity() {
     }
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
