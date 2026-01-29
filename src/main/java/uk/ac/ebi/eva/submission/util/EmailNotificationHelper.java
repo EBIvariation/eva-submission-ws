@@ -94,7 +94,9 @@ public class EmailNotificationHelper {
                 .addLineBreak()
                 .addText("User Name: " + getUserNameFromSubmissionAccountOrDefault(submissionAccount, "Not Set"))
                 .addLineBreak()
-                .addText("User Email: " + submissionAccount.getPrimaryEmail())
+                .addText("User Primary Email: " + submissionAccount.getPrimaryEmail())
+                .addLineBreak()
+                .addText("User Secondary Emails: " + String.join(", ", submissionAccount.getSecondaryEmails()))
                 .addGap(2)
                 .build();
 

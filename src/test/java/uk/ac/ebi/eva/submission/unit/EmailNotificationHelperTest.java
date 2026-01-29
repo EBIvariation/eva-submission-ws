@@ -171,7 +171,8 @@ public class EmailNotificationHelperTest {
                 "submission ID: submission-12345<br />" +
                 "Project Title: Test Project Title<br />" +
                 "User Name: John Doe<br />" +
-                "User Email: john@example.com" +
+                "User Primary Email: john@example.com<br />" +
+                "User Secondary Emails: " +
                 "<br /><br /><br />" +
                 "<span style=\"font-size:10px;\">Please don't reply to this email.</span><br />" +
                 "<span style=\"font-size:10px;\">For any issues/support please contact us at </span>" +

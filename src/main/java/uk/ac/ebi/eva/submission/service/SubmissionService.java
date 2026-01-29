@@ -297,10 +297,11 @@ public class SubmissionService {
                                                           String projectTitle, SubmissionStatus submissionStatus,
                                                           boolean needConsentStatement, boolean deprecatedVersion, boolean success) {
         String sendTo = submissionAccount.getPrimaryEmail();
+        List<String> sendCC = submissionAccount.getSecondaryEmails();
         String subject = emailHelper.getSubjectForSubmissionStatusUpdate(submissionStatus, success);
         String body = emailHelper.getTextForSubmissionStatusUpdate(submissionAccount, submissionId, projectTitle,
                 submissionStatus, needConsentStatement, deprecatedVersion, success);
-        mailSender.sendEmail(emailHelper.getEvaHelpdeskEmail(), sendTo, subject, body);
+        mailSender.sendEmail(emailHelper.getEvaHelpdeskEmail(), sendTo, sendCC, subject, body);
     }
 
     public void sendMailNotificationToEVAHelpdeskForSubmissionUploaded(SubmissionAccount submissionAccount,
