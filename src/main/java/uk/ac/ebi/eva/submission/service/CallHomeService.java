@@ -8,6 +8,8 @@ import uk.ac.ebi.eva.submission.entity.CallHomeEventEntity;
 import uk.ac.ebi.eva.submission.repository.CallHomeEventRepository;
 
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 @Service
 public class CallHomeService {
@@ -52,6 +54,12 @@ public class CallHomeService {
         }
 
         try {
+            if (v.isArray() && type == String.class) {
+                String joined = StreamSupport.stream(v.spliterator(), false)
+                        .map(JsonNode::asText)
+                        .collect(Collectors.joining(","));
+                return type.cast(joined);
+            }
             return MAPPER.convertValue(v, type);
         } catch (IllegalArgumentException e) {
             return null;

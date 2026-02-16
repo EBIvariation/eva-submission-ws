@@ -138,7 +138,7 @@ public class CallHomeWSIntegrationTest {
         rootNode.put("createdAt", "2020-01-01T00:00:00");
         rootNode.put("runtimeSeconds", 123);
         rootNode.put("executor", "Native");
-        rootNode.put("tasks", "VALIDATION,SUBMIT");
+        rootNode.putArray("tasks").add("VALIDATION").add("SUBMIT");
 
         return rootNode;
     }
