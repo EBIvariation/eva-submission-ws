@@ -21,4 +21,4 @@ jobs:
         with:
           java-version: ${{ matrix.java-version }}
       - name: Run Maven tests
-        run: mvn test
+        run: mvn test -Dapi.version=1.44
