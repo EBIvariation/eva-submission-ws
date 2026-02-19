@@ -20,7 +20,6 @@ public class SchemaDownloader {
         this.restTemplate = restTemplate;
     }
 
-    @Cacheable(value = "latestTagCache", key = "#tagURL")
     @Retryable(value = Exception.class, maxAttempts = 5, backoff = @Backoff(delay = 2000, multiplier = 2))
     public String getLatestTag(String tagURL) {
         JsonNode tagJson = restTemplate.getForObject(tagURL, JsonNode.class);
@@ -33,12 +32,8 @@ public class SchemaDownloader {
         return restTemplate.getForObject(schemaUrl, String.class);
     }
 
-    @CacheEvict(value = "latestTagCache", allEntries = true)
-    @Scheduled(fixedRate = 12 * 60 * 60 * 1000)
-    public void evictLatestTagCache() {}
-
     @CacheEvict(value = "schemaCache", allEntries = true)
     @Scheduled(fixedRate = 48 * 60 * 60 * 1000)
-    public void evictSchemaCache() {}
-
+    public void evictSchemaCache() {
+    }
 }
