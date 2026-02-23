@@ -27,7 +27,7 @@ import static org.mockito.Mockito.times;
 @EnableCaching
 @EnableRetry
 @Import(CacheAutoConfiguration.class)
-class CallHomeServiceCacheTest {
+class SchemaDownloaderTest {
 
     @Autowired
     private SchemaDownloader schemaDownloader;
