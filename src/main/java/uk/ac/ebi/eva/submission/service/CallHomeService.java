@@ -3,24 +3,55 @@ package uk.ac.ebi.eva.submission.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.networknt.schema.InputFormat;
+import com.networknt.schema.Schema;
+import com.networknt.schema.SchemaRegistry;
+import com.networknt.schema.SpecificationVersion;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.eva.submission.entity.CallHomeEventEntity;
 import uk.ac.ebi.eva.submission.repository.CallHomeEventRepository;
+import uk.ac.ebi.eva.submission.util.SchemaDownloader;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 @Service
 public class CallHomeService {
+    private final Logger logger = LoggerFactory.getLogger(CallHomeService.class);
+
     private final CallHomeEventRepository callHomeEventRepository;
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModule(new JavaTimeModule());
+    private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final SchemaRegistry schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12);
+    private final SchemaDownloader schemaDownloader;
 
-    public CallHomeService(CallHomeEventRepository callHomeEventRepository) {
+    public CallHomeService(CallHomeEventRepository callHomeEventRepository, SchemaDownloader schemaDownloader) {
         this.callHomeEventRepository = callHomeEventRepository;
+        this.schemaDownloader = schemaDownloader;
     }
+
+    public boolean validateJson(JsonNode jsonPayload) {
+        String latestTag = schemaDownloader.getLatestTag(SchemaDownloader.TAG_URL);
+        String schemaURLWithLatestTag = SchemaDownloader.SCHEMA_URL.replace("{tag}", latestTag);
+        String schemaContent = schemaDownloader.loadSchemaFromGitHub(schemaURLWithLatestTag);
+        Schema schema = schemaRegistry.getSchema(schemaContent, InputFormat.JSON);
+        List<com.networknt.schema.Error> errorList = schema.validate(jsonPayload.toString(), InputFormat.JSON,
+                executionContext -> executionContext
+                        .executionConfig(config -> config.formatAssertionsEnabled(true))
+        );
+
+        boolean schemaValidationPassed = errorList.isEmpty();
+        if (!schemaValidationPassed) {
+            logger.error("Schema validation failed: {}", errorList);
+        }
+
+        return schemaValidationPassed;
+    }
+
 
     public void registerCallHomeEvent(JsonNode callHomeEventJson) {
         CallHomeEventEntity callHomeEventEntity = getCallHomeEventEntity(callHomeEventJson);
