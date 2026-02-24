@@ -1,6 +1,5 @@
 package uk.ac.ebi.eva.submission.integration;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -24,13 +22,11 @@ import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.util.SchemaDownloader;
 
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,8 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-public class CallHomeWSIntegrationTest {
-    private static String callhomeSchemaURL = "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/main/eva_sub_cli/etc/call_home_payload_schema.json";
+public class CallHomeWSSchemaValidationFailureTest {
+    private static String callhomeSchemaURL = "https://dummy_url";
 
     @Autowired
     private CallHomeEventRepository callHomeEventRepository;
@@ -80,54 +76,17 @@ public class CallHomeWSIntegrationTest {
         registry.add("callhome.schema.url", () -> callhomeSchemaURL);
     }
 
-
     @Test
     @Transactional
-    public void testRegisterCallHomeEvent() throws Exception {
+    public void testRegisterCallHomeEvent_InternalServerError() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode callHomeJsonRootNode = getCallHomeJson(mapper);
 
         mvc.perform(post("/v1/call-home/events")
                         .content(mapper.writeValueAsString(callHomeJsonRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
-
-        Iterable<CallHomeEventEntity> iterable = callHomeEventRepository.findAll();
-        List<CallHomeEventEntity> callHomeEventEntityList = StreamSupport
-                .stream(iterable.spliterator(), false)
-                .collect(Collectors.toList());
-
-        assertThat(callHomeEventEntityList.size()).isEqualTo(1);
-
-        CallHomeEventEntity callHomeEventEntity = callHomeEventEntityList.get(0);
-        assertThat(callHomeEventEntity.getDeploymentId()).isEqualTo(callHomeJsonRootNode.get("deploymentId").asText());
-        assertThat(callHomeEventEntity.getRunId()).isEqualTo(callHomeJsonRootNode.get("runId").asText());
-        assertThat(callHomeEventEntity.getEventType()).isEqualTo(callHomeJsonRootNode.get("eventType").asText());
-        assertThat(callHomeEventEntity.getCliVersion()).isEqualTo(callHomeJsonRootNode.get("cliVersion").asText());
-        assertThat(callHomeEventEntity.getCreatedAt())
-                .isEqualTo(ZonedDateTime.parse(callHomeJsonRootNode.get("createdAt").asText()).toLocalDateTime());
-        assertThat(callHomeEventEntity.getRuntimeSeconds()).isEqualTo(callHomeJsonRootNode.get("runtimeSeconds").asInt());
-        assertThat(callHomeEventEntity.getExecutor()).isEqualTo(callHomeJsonRootNode.get("executor").asText());
-        assertThat(callHomeEventEntity.getTasks()).isEqualTo(StreamSupport
-                .stream(callHomeJsonRootNode.get("tasks").spliterator(), false)
-                .map(JsonNode::asText)
-                .collect(Collectors.joining(",")));
-
-        assertThat(callHomeEventEntity.getRawPayload().toString()).isEqualTo(callHomeJsonRootNode.toString());
-    }
-
-    @Test
-    @Transactional
-    public void testRegisterCallHomeEvent_BadRequestAsFieldIsMissing() throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode callHomeJsonRootNode = getCallHomeJson(mapper);
-        callHomeJsonRootNode.putNull("eventType");
-
-        mvc.perform(post("/v1/call-home/events")
-                        .content(mapper.writeValueAsString(callHomeJsonRootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("Could not register event as the event json is invalid"));
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().string("Could not register event as an exception occurred"));
 
         Iterable<CallHomeEventEntity> iterable = callHomeEventRepository.findAll();
         List<CallHomeEventEntity> callHomeEventEntityList = StreamSupport

@@ -148,6 +148,7 @@ public class SubmissionWSIntegrationTest {
         registry.add("eva.email.server", mailhog::getHost);
         registry.add("eva.email.port", () -> mailhog.getMappedPort(1025));
         registry.add("eva.helpdesk.email", () -> evaHelpdeskEmail);
+        registry.add("callhome.schema.url", () -> "https://dummy_url");
     }
 
     @BeforeEach

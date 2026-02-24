@@ -36,7 +36,7 @@ public class CallHomeService {
 
     public boolean validateJson(JsonNode jsonPayload) {
         String latestTag = schemaDownloader.getLatestTag(SchemaDownloader.TAG_URL);
-        String schemaURLWithLatestTag = SchemaDownloader.SCHEMA_URL.replace("{tag}", latestTag);
+        String schemaURLWithLatestTag = schemaDownloader.getCallhomeSchemaURL().replace("{tag}", latestTag);
         String schemaContent = schemaDownloader.loadSchemaFromGitHub(schemaURLWithLatestTag);
         Schema schema = schemaRegistry.getSchema(schemaContent, InputFormat.JSON);
         List<com.networknt.schema.Error> errorList = schema.validate(jsonPayload.toString(), InputFormat.JSON,
