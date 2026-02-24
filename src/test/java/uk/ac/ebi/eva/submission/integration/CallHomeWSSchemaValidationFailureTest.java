@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-public class CallHomeWSIntegrationValidationFailureTest {
+public class CallHomeWSSchemaValidationFailureTest {
     private static String callhomeSchemaURL = "https://dummy_url";
 
     @Autowired
