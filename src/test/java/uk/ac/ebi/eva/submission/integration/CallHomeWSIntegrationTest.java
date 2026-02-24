@@ -59,6 +59,7 @@ public class CallHomeWSIntegrationTest {
 
     @BeforeEach
     public void setup() {
+        schemaDownloader.evictLatestTagCache();
         schemaDownloader.evictSchemaCache();
     }
 
