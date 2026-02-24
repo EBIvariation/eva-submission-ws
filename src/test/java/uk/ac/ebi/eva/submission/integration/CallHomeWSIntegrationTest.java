@@ -45,7 +45,6 @@ public class CallHomeWSIntegrationTest {
     private CallHomeEventRepository callHomeEventRepository;
 
     @SpyBean
-    @Autowired
     private SchemaDownloader schemaDownloader;
 
     @MockBean
