@@ -1,6 +1,7 @@
 package uk.ac.ebi.eva.submission.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.retry.annotation.Backoff;
@@ -12,7 +13,9 @@ import org.springframework.web.client.RestTemplate;
 @Component
 public class SchemaDownloader {
     public static String TAG_URL = "https://api.github.com/repos/EBIvariation/eva-sub-cli/tags";
-    public static String SCHEMA_URL = "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/{tag}/eva_sub_cli/etc/call_home_payload_schema.json";
+
+    @Value("${callhome.schema.url}")
+    private String callhomeSchemaURL;
 
     private final RestTemplate restTemplate;
 
@@ -41,4 +44,7 @@ public class SchemaDownloader {
     @Scheduled(fixedRate = 48 * 60 * 60 * 1000)
     public void evictSchemaCache() {}
 
+    public String getCallhomeSchemaURL() {
+        return callhomeSchemaURL;
+    }
 }
