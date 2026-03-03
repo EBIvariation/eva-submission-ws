@@ -14,7 +14,7 @@ import uk.ac.ebi.eva.submission.entity.CallHomeEventEntity;
 import uk.ac.ebi.eva.submission.repository.CallHomeEventRepository;
 import uk.ac.ebi.eva.submission.util.SchemaDownloader;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -65,7 +65,7 @@ public class CallHomeService {
         callHomeEventEntity.setRunId(get(callHomeEventJson, "runId", String.class));
         callHomeEventEntity.setEventType(get(callHomeEventJson, "eventType", String.class));
         callHomeEventEntity.setCliVersion(get(callHomeEventJson, "cliVersion", String.class));
-        callHomeEventEntity.setCreatedAt(get(callHomeEventJson, "createdAt", LocalDateTime.class));
+        callHomeEventEntity.setCreatedAt(get(callHomeEventJson, "createdAt", OffsetDateTime.class));
         callHomeEventEntity.setRuntimeSeconds(get(callHomeEventJson, "runtimeSeconds", Integer.class));
         callHomeEventEntity.setExecutor(get(callHomeEventJson, "executor", String.class));
         callHomeEventEntity.setTasks(get(callHomeEventJson, "tasks", String.class));

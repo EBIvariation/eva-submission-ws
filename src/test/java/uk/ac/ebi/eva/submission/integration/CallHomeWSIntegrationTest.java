@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -105,7 +103,7 @@ public class CallHomeWSIntegrationTest {
         assertThat(callHomeEventEntity.getEventType()).isEqualTo(callHomeJsonRootNode.get("eventType").asText());
         assertThat(callHomeEventEntity.getCliVersion()).isEqualTo(callHomeJsonRootNode.get("cliVersion").asText());
         assertThat(callHomeEventEntity.getCreatedAt())
-                .isEqualTo(ZonedDateTime.parse(callHomeJsonRootNode.get("createdAt").asText()).toLocalDateTime());
+                .isEqualTo(ZonedDateTime.parse(callHomeJsonRootNode.get("createdAt").asText()).toOffsetDateTime());
         assertThat(callHomeEventEntity.getRuntimeSeconds()).isEqualTo(callHomeJsonRootNode.get("runtimeSeconds").asInt());
         assertThat(callHomeEventEntity.getExecutor()).isEqualTo(callHomeJsonRootNode.get("executor").asText());
         assertThat(callHomeEventEntity.getTasks()).isEqualTo(StreamSupport
@@ -143,7 +141,7 @@ public class CallHomeWSIntegrationTest {
         rootNode.put("runId", "8f5bb4ea-9fc4-4117-91c6-9966d124e876");
         rootNode.put("eventType", "VALIDATION_COMPLETED");
         rootNode.put("cliVersion", "test-cli-version");
-        rootNode.put("createdAt", "2020-01-01T00:00:00Z");
+        rootNode.put("createdAt", "2026-02-18T14:43:27.271982+00:00");
         rootNode.put("runtimeSeconds", 123);
         rootNode.put("executor", "native");
         rootNode.putArray("tasks").add("validate").add("submit");
