@@ -102,7 +102,7 @@ public class CallHomeWSSchemaValidationFailureTest {
         rootNode.put("runId", "8f5bb4ea-9fc4-4117-91c6-9966d124e876");
         rootNode.put("eventType", "VALIDATION_COMPLETED");
         rootNode.put("cliVersion", "test-cli-version");
-        rootNode.put("createdAt", "2020-01-01T00:00:00Z");
+        rootNode.put("createdAt", "2026-02-18T14:43:27.271982+00:00");
         rootNode.put("runtimeSeconds", 123);
         rootNode.put("executor", "native");
         rootNode.putArray("tasks").add("validate").add("submit");
