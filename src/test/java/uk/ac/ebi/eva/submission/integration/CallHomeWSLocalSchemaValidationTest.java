@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,19 +23,19 @@ import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.util.SchemaDownloader;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-public class CallHomeWSSchemaValidationFailureTest {
+public class CallHomeWSLocalSchemaValidationTest {
     private static String callhomeSchemaURL = "https://dummy_url";
 
     @Autowired
@@ -59,7 +60,7 @@ public class CallHomeWSSchemaValidationFailureTest {
     }
 
     @Container
-    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6")
+    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:11")
             .withInitScript("init.sql");
 
     @DynamicPropertySource
@@ -85,15 +86,30 @@ public class CallHomeWSSchemaValidationFailureTest {
         mvc.perform(post("/v1/call-home/events")
                         .content(mapper.writeValueAsString(callHomeJsonRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isInternalServerError())
-                .andExpect(content().string("Could not register event as an exception occurred"));
+                .andExpect(status().isOk());
 
         Iterable<CallHomeEventEntity> iterable = callHomeEventRepository.findAll();
         List<CallHomeEventEntity> callHomeEventEntityList = StreamSupport
                 .stream(iterable.spliterator(), false)
                 .collect(Collectors.toList());
 
-        assertThat(callHomeEventEntityList.size()).isEqualTo(0);
+        assertThat(callHomeEventEntityList.size()).isEqualTo(1);
+
+        CallHomeEventEntity callHomeEventEntity = callHomeEventEntityList.get(0);
+        assertThat(callHomeEventEntity.getDeploymentId()).isEqualTo(callHomeJsonRootNode.get("deploymentId").asText());
+        assertThat(callHomeEventEntity.getRunId()).isEqualTo(callHomeJsonRootNode.get("runId").asText());
+        assertThat(callHomeEventEntity.getEventType()).isEqualTo(callHomeJsonRootNode.get("eventType").asText());
+        assertThat(callHomeEventEntity.getCliVersion()).isEqualTo(callHomeJsonRootNode.get("cliVersion").asText());
+        assertThat(callHomeEventEntity.getCreatedAt())
+                .isEqualTo(ZonedDateTime.parse(callHomeJsonRootNode.get("createdAt").asText()).toOffsetDateTime());
+        assertThat(callHomeEventEntity.getRuntimeSeconds()).isEqualTo(callHomeJsonRootNode.get("runtimeSeconds").asInt());
+        assertThat(callHomeEventEntity.getExecutor()).isEqualTo(callHomeJsonRootNode.get("executor").asText());
+        assertThat(callHomeEventEntity.getTasks()).isEqualTo(StreamSupport
+                .stream(callHomeJsonRootNode.get("tasks").spliterator(), false)
+                .map(JsonNode::asText)
+                .collect(Collectors.joining(",")));
+
+        assertThat(callHomeEventEntity.getRawPayload().toString()).isEqualTo(callHomeJsonRootNode.toString());
     }
 
     private ObjectNode getCallHomeJson(ObjectMapper mapper) {

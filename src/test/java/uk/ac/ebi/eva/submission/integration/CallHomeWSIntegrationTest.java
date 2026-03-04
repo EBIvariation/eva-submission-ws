@@ -61,7 +61,7 @@ public class CallHomeWSIntegrationTest {
     }
 
     @Container
-    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6")
+    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:11")
             .withInitScript("init.sql");
 
     @DynamicPropertySource
