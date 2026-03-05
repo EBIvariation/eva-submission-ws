@@ -14,6 +14,11 @@ import uk.ac.ebi.eva.submission.entity.CallHomeEventEntity;
 import uk.ac.ebi.eva.submission.repository.CallHomeEventRepository;
 import uk.ac.ebi.eva.submission.util.SchemaDownloader;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +27,8 @@ import java.util.stream.StreamSupport;
 @Service
 public class CallHomeService {
     private final Logger logger = LoggerFactory.getLogger(CallHomeService.class);
+
+    private final String fileName = "CallHomePayloadSchema.json";
 
     private final CallHomeEventRepository callHomeEventRepository;
 
@@ -34,10 +41,35 @@ public class CallHomeService {
         this.schemaDownloader = schemaDownloader;
     }
 
-    public boolean validateJson(JsonNode jsonPayload) {
+    public boolean validateJson(JsonNode jsonPayload) throws IOException {
+        try {
+            return validateJsonUsingSchemaFromGithub(jsonPayload);
+        } catch (Exception ex) {
+            logger.error("Could not validate json using the schema from github as an exception occurred: {}", ex.toString());
+            return validateJsonUsingLocalSchemaCopy(jsonPayload);
+        }
+    }
+
+    public boolean validateJsonUsingSchemaFromGithub(JsonNode jsonPayload) {
         String latestTag = schemaDownloader.getLatestTag(SchemaDownloader.TAG_URL);
         String schemaURLWithLatestTag = schemaDownloader.getCallhomeSchemaURL().replace("{tag}", latestTag);
         String schemaContent = schemaDownloader.loadSchemaFromGitHub(schemaURLWithLatestTag);
+        return validateJsonUsingSchema(schemaContent, jsonPayload);
+    }
+
+    public boolean validateJsonUsingLocalSchemaCopy(JsonNode jsonPayload) throws IOException {
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream(fileName);
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Schema File not found: " + fileName);
+        }
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            String schemaContent = reader.lines().collect(Collectors.joining("\n"));
+            return validateJsonUsingSchema(schemaContent, jsonPayload);
+        }
+    }
+
+    public boolean validateJsonUsingSchema(String schemaContent, JsonNode jsonPayload) {
         Schema schema = schemaRegistry.getSchema(schemaContent, InputFormat.JSON);
         List<com.networknt.schema.Error> errorList = schema.validate(jsonPayload.toString(), InputFormat.JSON,
                 executionContext -> executionContext
