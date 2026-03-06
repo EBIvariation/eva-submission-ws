@@ -121,6 +121,7 @@ public class CallHomeWSLocalSchemaValidationTest {
         rootNode.put("createdAt", "2026-02-18T14:43:27.271982+00:00");
         rootNode.put("runtimeSeconds", 123);
         rootNode.put("executor", "native");
+        rootNode.put("validation_result", mapper.createObjectNode());
         rootNode.putArray("tasks").add("validate").add("submit");
 
         return rootNode;
