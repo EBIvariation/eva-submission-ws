@@ -74,7 +74,6 @@ public class CallHomeWSIntegrationTest {
 
         registry.add("eva.email.server", () -> "test-email-server");
         registry.add("eva.email.port", () -> 1025);
-        registry.add("eva.helpdesk.email", () -> "test-helpdesk-email");
         registry.add("callhome.schema.url", () -> callhomeSchemaURL);
     }
 

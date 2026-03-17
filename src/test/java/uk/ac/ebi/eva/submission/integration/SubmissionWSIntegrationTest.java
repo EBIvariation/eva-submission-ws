@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
@@ -32,12 +33,14 @@ import org.xml.sax.InputSource;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
+import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
@@ -66,6 +69,8 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -88,6 +93,9 @@ public class SubmissionWSIntegrationTest {
 
     @Value("${controller.auth.admin.password}")
     private String TEST_ADMIN_PASSWORD;
+
+    @Value("${eva.helpdesk.email}")
+    private String EVA_HELPDESK_EMAIL;
 
     @Autowired
     private EntityManager entityManager;
@@ -122,7 +130,6 @@ public class SubmissionWSIntegrationTest {
     @MockBean
     private GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
-    private static String evaHelpdeskEmail = "test_eva_helpdesk@email.com";
     private static String webinUserPrimaryEmail = "webinUserId@webin.com";
     private static List<String> webinUserSecondaryEmails = Arrays.asList("webinUserId_1@webin.com", "webinUserId_2@webin.com");
     private String userToken = "webinUserToken";
@@ -135,6 +142,8 @@ public class SubmissionWSIntegrationTest {
     @Container
     static GenericContainer<?> mailhog = new GenericContainer<>(DockerImageName.parse("mailhog/mailhog"))
             .withExposedPorts(1025, 8025);
+    @Autowired
+    private SubmissionEloadRepository submissionEloadRepository;
 
     @DynamicPropertySource
     static void dataSourceProperties(DynamicPropertyRegistry registry) {
@@ -147,7 +156,6 @@ public class SubmissionWSIntegrationTest {
         // MailHog Configuration
         registry.add("eva.email.server", mailhog::getHost);
         registry.add("eva.email.port", () -> mailhog.getMappedPort(1025));
-        registry.add("eva.helpdesk.email", () -> evaHelpdeskEmail);
         registry.add("callhome.schema.url", () -> "https://dummy_url");
     }
 
@@ -1340,6 +1348,37 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(jsonPath("metadataJson.project.description").value(projectDescription));
     }
 
+    @Test
+    @Transactional
+    public void testGetOrGenerateSubmissionIdForEload() throws Exception {
+        SubmissionAccount submissionAccount = new SubmissionAccount("eva", "webin", "eva", "eva", "eva@ebi.ac.uk");
+        submissionAccountRepository.save(submissionAccount);
+
+        Integer eload = 123;
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        MvcResult result = mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+        String submissionId = result.getResponse().getContentAsString();
+        assertNotNull(submissionId);
+        assertNotEquals(submissionId, "");
+
+        SubmissionEload submissionEload = submissionEloadRepository.findByEload(123);
+        assertEquals(eload, submissionEload.getEload());
+        assertEquals(submissionId, submissionEload.getSubmissionId());
+
+
+        // when called again for the same eload should return the same submission ID
+        mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().string(submissionId));
+    }
+
     @Disabled
     @Test
     @Transactional
@@ -1497,7 +1536,7 @@ public class SubmissionWSIntegrationTest {
                     List<String> fromList = getStringList(headers.path("From"));
                     List<String> subjectList = getStringList(headers.path("Subject"));
 
-                    return toList.contains(evaHelpdeskEmail)
+                    return toList.contains(EVA_HELPDESK_EMAIL)
                             && fromList.contains("eva-noreply@ebi.ac.uk")
                             && subjectList.stream().anyMatch(subject ->
                             subject.contains("New Submission Uploaded. Submission Id - (" + submissionId + ")"));
@@ -1526,7 +1565,7 @@ public class SubmissionWSIntegrationTest {
                     return toList.contains(webinUserPrimaryEmail)
                             && ccList.contains(webinUserSecondaryEmails.get(0))
                             && ccList.contains(webinUserSecondaryEmails.get(1))
-                            && fromList.contains(evaHelpdeskEmail)
+                            && fromList.contains(EVA_HELPDESK_EMAIL)
                             && subjectList.stream().anyMatch(subject ->
                             subject.contains("EVA Submission Update: UPLOADED SUCCESS"))
                             && body.replaceAll("=\\r?\\n", "").contains("Here is the update for your submission: <br /><br />Submission ID: " + submissionId + "<br />");

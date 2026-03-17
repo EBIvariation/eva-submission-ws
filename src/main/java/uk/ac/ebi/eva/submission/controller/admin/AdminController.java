@@ -39,12 +39,12 @@ public class AdminController extends BaseController {
 
     @Operation(summary = "Given a submission id, this endpoint updates the status of the submission to the one provided",
             security = {@SecurityRequirement(name = "basicAuth")
-    })
+            })
     @Parameters({
-            @Parameter(name="submissionId", description = "Id of the submission whose status needs to be updated",
-                    required = true, in= ParameterIn.PATH),
-            @Parameter(name="status", description = "Desired status of the submission ",
-                    required = true, in= ParameterIn.PATH)
+            @Parameter(name = "submissionId", description = "Id of the submission whose status needs to be updated",
+                    required = true, in = ParameterIn.PATH),
+            @Parameter(name = "status", description = "Desired status of the submission ",
+                    required = true, in = ParameterIn.PATH)
     })
     @PutMapping("submission/{submissionId}/status/{status}")
     public ResponseEntity<?> markSubmissionStatus(@PathVariable("submissionId") String submissionId,
@@ -59,8 +59,8 @@ public class AdminController extends BaseController {
 
     @Operation(summary = "This endpoint retrieves detail of submission including the metadata json")
     @Parameters({
-            @Parameter(name="submissionId", description = "Id of the submission to fetch",
-                    required = true, in= ParameterIn.PATH)
+            @Parameter(name = "submissionId", description = "Id of the submission to fetch",
+                    required = true, in = ParameterIn.PATH)
     })
     @GetMapping("submission/{submissionId}")
     public ResponseEntity<?> getSubmissionDetails(
@@ -75,8 +75,8 @@ public class AdminController extends BaseController {
 
     @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")
     @Parameters({
-            @Parameter(name="status", description = "Desired status of the submission ",
-                    required = true, in= ParameterIn.PATH)
+            @Parameter(name = "status", description = "Desired status of the submission ",
+                    required = true, in = ParameterIn.PATH)
     })
     @GetMapping("submissions/status/{status}")
     public ResponseEntity<?> getSubmissionsbyStatus(@PathVariable("status") SubmissionStatus status) {
@@ -86,14 +86,14 @@ public class AdminController extends BaseController {
 
     @Operation(summary = "Given a submission id, this endpoint updates the processing status of the submission to the one provided",
             security = {@SecurityRequirement(name = "basicAuth")
-    })
+            })
     @Parameters({
-            @Parameter(name="submissionId", description = "Id of the submission whose status needs to be updated",
-                    required = true, in= ParameterIn.PATH),
-            @Parameter(name="step", description = "The processing step of the submission",
-                    required = true, in= ParameterIn.PATH),
-            @Parameter(name="status", description = "The status of the processing step for this submission",
-                    required = true, in= ParameterIn.PATH)
+            @Parameter(name = "submissionId", description = "Id of the submission whose status needs to be updated",
+                    required = true, in = ParameterIn.PATH),
+            @Parameter(name = "step", description = "The processing step of the submission",
+                    required = true, in = ParameterIn.PATH),
+            @Parameter(name = "status", description = "The status of the processing step for this submission",
+                    required = true, in = ParameterIn.PATH)
     })
     @PutMapping("submission-process/{submissionId}/{step}/{status}")
     public ResponseEntity<?> markSubmissionProcessStepAndStatus(@PathVariable("submissionId") String submissionId,
@@ -109,10 +109,10 @@ public class AdminController extends BaseController {
 
     @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status")
     @Parameters({
-            @Parameter(name="step", description = "The processing step of the submission.",
-                    required = true, in= ParameterIn.PATH),
-            @Parameter(name="status", description = "The status of the submission processing step.",
-                    required = true, in= ParameterIn.PATH)
+            @Parameter(name = "step", description = "The processing step of the submission.",
+                    required = true, in = ParameterIn.PATH),
+            @Parameter(name = "status", description = "The status of the submission processing step.",
+                    required = true, in = ParameterIn.PATH)
     })
     @GetMapping("submission-processes/{step}/{status}")
     public ResponseEntity<?> getSubmissionsProcessingByStepAndStatus(
@@ -120,6 +120,16 @@ public class AdminController extends BaseController {
             @PathVariable("status") SubmissionProcessingStatus status) {
         List<SubmissionProcessing> submissions = submissionService.getSubmissionsByProcessingStepAndStatus(step, status);
         return new ResponseEntity<>(submissions, HttpStatus.OK);
+    }
+
+    @Operation(summary = "This endpoint retrieves the submission id associated with an eload. " +
+            "If there is no submission id for the eload, it will create one, link it to the eload and then retrieve the same")
+    @Parameters({@Parameter(name = "eload", description = "The eload for which we want to get the submission ID",
+            required = true, in = ParameterIn.PATH)})
+    @GetMapping("submission/{eload}/submissionId")
+    public ResponseEntity<?> getSubmissionIdForEload(@PathVariable("eload") Integer eload) {
+        String submissionId = submissionService.getOrGenerateSubmissionIdForEload(eload);
+        return new ResponseEntity<>(submissionId, HttpStatus.OK);
     }
 
 }

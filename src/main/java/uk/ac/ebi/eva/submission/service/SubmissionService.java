@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
+import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
@@ -21,6 +22,7 @@ import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
@@ -67,12 +69,17 @@ public class SubmissionService {
 
     private final SubmissionProcessingRepository submissionProcessingRepository;
 
+    private final SubmissionEloadRepository submissionEloadRepository;
+
     private final GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
     private final MailSender mailSender;
 
     @Value("${globus.uploadHttpDomain}")
     private String uploadHttpDomain;
+
+    @Value("${eva.submission.account}")
+    private String evaSubmissionAccount;
 
     private EmailNotificationHelper emailHelper;
 
@@ -82,6 +89,7 @@ public class SubmissionService {
                              SubmissionAccountRepository submissionAccountRepository,
                              SubmissionDetailsRepository submissionDetailsRepository,
                              SubmissionProcessingRepository submissionProcessingRepository,
+                             SubmissionEloadRepository submissionEloadRepository,
                              GlobusDirectoryProvisioner globusDirectoryProvisioner,
                              MailSender mailSender, EmailNotificationHelper emailHelper,
                              EnaUtils enaUtils) {
@@ -89,6 +97,7 @@ public class SubmissionService {
         this.submissionAccountRepository = submissionAccountRepository;
         this.submissionDetailsRepository = submissionDetailsRepository;
         this.submissionProcessingRepository = submissionProcessingRepository;
+        this.submissionEloadRepository = submissionEloadRepository;
         this.globusDirectoryProvisioner = globusDirectoryProvisioner;
         this.mailSender = mailSender;
         this.emailHelper = emailHelper;
@@ -113,6 +122,29 @@ public class SubmissionService {
         submission.setUploadUrl(uploadHttpDomain + "/" + directoryToCreate);
 
         return submissionRepository.save(submission);
+    }
+
+    public String getOrGenerateSubmissionIdForEload(Integer eload) {
+        SubmissionEload submissionEload = submissionEloadRepository.findByEload(eload);
+        if (submissionEload != null) {
+            return submissionEload.getSubmissionId();
+        }
+
+        String submissionId = UUID.randomUUID().toString();
+        // get EVA submission account
+        Optional<SubmissionAccount> optSubmissionAccount = submissionAccountRepository.findById(evaSubmissionAccount);
+        // create submission with submission ID and EVA user
+        Submission submission = new Submission(submissionId);
+        submission.setSubmissionAccount(optSubmissionAccount.get());
+        submission.setStatus(SubmissionStatus.OPEN.toString());
+        submission.setInitiationTime(LocalDateTime.now());
+        submissionRepository.save(submission);
+
+        // Link Submission ID to Eload
+        submissionEload = new SubmissionEload(submissionId, eload);
+        submissionEloadRepository.save(submissionEload);
+
+        return submissionId;
     }
 
     public void checkMetadataFileInfoMatchesWithUploadedFiles(SubmissionAccount submissionAccount, String submissionId, JsonNode metadataJson) {
