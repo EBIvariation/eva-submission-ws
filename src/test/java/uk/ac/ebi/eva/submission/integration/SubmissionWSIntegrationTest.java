@@ -1362,7 +1362,8 @@ public class SubmissionWSIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andReturn();
-        String submissionId = result.getResponse().getContentAsString();
+        String responseBody = result.getResponse().getContentAsString();
+        String submissionId = new ObjectMapper().readTree(responseBody).get("submissionId").asText();
         assertNotNull(submissionId);
         assertNotEquals(submissionId, "");
 
@@ -1370,13 +1371,12 @@ public class SubmissionWSIntegrationTest {
         assertEquals(eload, submissionEload.getEload());
         assertEquals(submissionId, submissionEload.getSubmissionId());
 
-
         // when called again for the same eload should return the same submission ID
         mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(content().string(submissionId));
+                .andExpect(jsonPath("submissionId").value(submissionId));
     }
 
     @Disabled

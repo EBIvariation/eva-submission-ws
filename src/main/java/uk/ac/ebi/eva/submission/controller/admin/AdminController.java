@@ -24,6 +24,7 @@ import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -133,7 +134,7 @@ public class AdminController extends BaseController {
     @GetMapping("submission/{eload}/submissionId")
     public ResponseEntity<?> getSubmissionIdForEload(@PathVariable("eload") Integer eload) {
         String submissionId = submissionService.getOrGenerateSubmissionIdForEload(eload);
-        return new ResponseEntity<>(submissionId, HttpStatus.OK);
+        return new ResponseEntity<>(Collections.singletonMap("submissionId", submissionId), HttpStatus.OK);
     }
 
 }
