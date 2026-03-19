@@ -57,7 +57,8 @@ public class AdminController extends BaseController {
         }
     }
 
-    @Operation(summary = "This endpoint retrieves detail of submission including the metadata json")
+    @Operation(summary = "This endpoint retrieves detail of submission including the metadata json",
+            security = {@SecurityRequirement(name = "basicAuth")})
     @Parameters({
             @Parameter(name = "submissionId", description = "Id of the submission to fetch",
                     required = true, in = ParameterIn.PATH)
@@ -73,7 +74,8 @@ public class AdminController extends BaseController {
         }
     }
 
-    @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database")
+    @Operation(summary = "This endpoint retrieves all the submissions of a specific status present in the database",
+            security = {@SecurityRequirement(name = "basicAuth")})
     @Parameters({
             @Parameter(name = "status", description = "Desired status of the submission ",
                     required = true, in = ParameterIn.PATH)
@@ -107,7 +109,8 @@ public class AdminController extends BaseController {
         }
     }
 
-    @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status")
+    @Operation(summary = "This endpoint retrieves all the submissions from the database with given step and status",
+            security = {@SecurityRequirement(name = "basicAuth")})
     @Parameters({
             @Parameter(name = "step", description = "The processing step of the submission.",
                     required = true, in = ParameterIn.PATH),
@@ -123,7 +126,8 @@ public class AdminController extends BaseController {
     }
 
     @Operation(summary = "This endpoint retrieves the submission id associated with an eload. " +
-            "If there is no submission id for the eload, it will create one, link it to the eload and then retrieve the same")
+            "If there is no submission id for the eload, it will create one, link it to the eload and then retrieve the same",
+            security = {@SecurityRequirement(name = "basicAuth")})
     @Parameters({@Parameter(name = "eload", description = "The eload for which we want to get the submission ID",
             required = true, in = ParameterIn.PATH)})
     @GetMapping("submission/{eload}/submissionId")
