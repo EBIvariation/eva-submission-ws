@@ -1,21 +1,26 @@
 package uk.ac.ebi.eva.submission.controller.admin;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
+import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
@@ -130,11 +135,29 @@ public class AdminController extends BaseController {
             "If there is no submission id for the eload, it will create one, link it to the eload and then retrieve the same",
             security = {@SecurityRequirement(name = "basicAuth")})
     @Parameters({@Parameter(name = "eload", description = "The eload for which we want to get the submission ID",
-            required = true, in = ParameterIn.PATH)})
+            required = true, in = ParameterIn.PATH),
+            @Parameter(name = "source", description = "The source associated with the submission",
+                    required = true, in = ParameterIn.QUERY)
+    })
     @GetMapping("submission/{eload}/submissionId")
-    public ResponseEntity<?> getSubmissionIdForEload(@PathVariable("eload") Integer eload) {
-        String submissionId = submissionService.getOrGenerateSubmissionIdForEload(eload);
+    public ResponseEntity<?> getSubmissionIdForEload(@PathVariable("eload") Integer eload,
+                                                     @RequestParam(value = "source") String source) {
+        String submissionId = submissionService.getOrGenerateSubmissionIdForEload(eload, source);
         return new ResponseEntity<>(Collections.singletonMap("submissionId", submissionId), HttpStatus.OK);
+    }
+
+    @Operation(summary = "This endpoint stores the eload and the associated submission id.",
+            security = {@SecurityRequirement(name = "basicAuth")})
+    @PutMapping("submission/eload/submissionId")
+    public ResponseEntity<?> storeSubmissionIdForEload(@RequestBody JsonNode body) {
+        try {
+            submissionService.storeSubmissionIdForEload(body);
+            return new ResponseEntity<>(HttpStatus.OK);
+        } catch (RequiredFieldsMissingException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (DataIntegrityViolationException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.CONFLICT);
+        }
     }
 
 }
