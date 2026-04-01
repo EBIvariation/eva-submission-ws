@@ -8,7 +8,9 @@ import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
@@ -33,6 +35,7 @@ import uk.ac.ebi.eva.submission.util.Utils;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,7 +127,8 @@ public class SubmissionService {
         return submissionRepository.save(submission);
     }
 
-    public String getOrGenerateSubmissionIdForEload(Integer eload) {
+    @Transactional
+    public String getOrGenerateSubmissionIdForEload(Integer eload, String source) {
         SubmissionEload submissionEload = submissionEloadRepository.findByEload(eload);
         if (submissionEload != null) {
             return submissionEload.getSubmissionId();
@@ -141,10 +145,39 @@ public class SubmissionService {
         submissionRepository.save(submission);
 
         // Link Submission ID to Eload
-        submissionEload = new SubmissionEload(submissionId, eload);
+        submissionEload = new SubmissionEload(submissionId, eload, source);
         submissionEloadRepository.save(submissionEload);
 
         return submissionId;
+    }
+
+    public void storeSubmissionIdForEload(JsonNode body) {
+        String submissionId = body.path("submissionId").asText("");
+        Integer eload = body.path("eload").asInt(-1);
+        String source = body.path("source").asText("");
+        if (submissionId.isEmpty() || source.isEmpty() || eload.equals(-1)) {
+            throw new RequiredFieldsMissingException("Missing values for some of the required fields. " +
+                    "submissionId: " + submissionId + ", eload: " + eload + ", source: " + source);
+        }
+
+        List<SubmissionEload> submissionEloadList = submissionEloadRepository.findBySubmissionIdOrEload(submissionId, eload);
+        if (submissionEloadList.isEmpty()) {
+            SubmissionEload submissionEload = new SubmissionEload(submissionId, eload, source);
+            submissionEloadRepository.save(submissionEload);
+        } else if (submissionEloadList.size() == 1) {
+            SubmissionEload submissionEload = submissionEloadList.get(0);
+            if (!submissionEload.getSubmissionId().equals(submissionId) || !submissionEload.getEload().equals(eload)) {
+                throw new DataIntegrityViolationException("Can't store submissionId-eload (" + submissionId + " - " + eload + "). " +
+                        "There already exists values pertaining to one of them. Existing values submissionId-eload ("
+                        + submissionEload.getSubmissionId() + " - " + submissionEload.getEload() + ").");
+            }
+        } else {
+            throw new DataIntegrityViolationException("Can't store submissionId-eload (" + submissionId + " - " + eload + "). " +
+                    "There already exists values pertaining to them. " + submissionEloadList.stream()
+                    .sorted(Comparator.comparing(se -> se.getEload()))
+                    .map(se -> "(" + se.getSubmissionId() + " - " + se.getEload() + ")")
+                    .collect(Collectors.joining(", ")));
+        }
     }
 
     public void checkMetadataFileInfoMatchesWithUploadedFiles(SubmissionAccount submissionAccount, String submissionId, JsonNode metadataJson) {

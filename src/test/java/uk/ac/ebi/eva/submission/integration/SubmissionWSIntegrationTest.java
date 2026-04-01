@@ -166,6 +166,9 @@ public class SubmissionWSIntegrationTest {
         when(webinTokenService.getWebinUserAccountFromToken(anyString())).thenReturn(webinUserAccount);
 
         submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+
+        SubmissionAccount submissionAccount = new SubmissionAccount("eva", "webin", "eva", "eva", "eva@ebi.ac.uk");
+        submissionAccountRepository.save(submissionAccount);
     }
 
     @Test
@@ -1351,17 +1354,18 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testGetOrGenerateSubmissionIdForEload() throws Exception {
-        SubmissionAccount submissionAccount = new SubmissionAccount("eva", "webin", "eva", "eva", "eva@ebi.ac.uk");
-        submissionAccountRepository.save(submissionAccount);
-
         Integer eload = 123;
+        String source = "email";
+
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-        MvcResult result = mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId")
+
+        MvcResult result = mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId?source=" + source)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andReturn();
+
         String responseBody = result.getResponse().getContentAsString();
         String submissionId = new ObjectMapper().readTree(responseBody).get("submissionId").asText();
         assertNotNull(submissionId);
@@ -1370,13 +1374,106 @@ public class SubmissionWSIntegrationTest {
         SubmissionEload submissionEload = submissionEloadRepository.findByEload(123);
         assertEquals(eload, submissionEload.getEload());
         assertEquals(submissionId, submissionEload.getSubmissionId());
+        assertEquals("email", submissionEload.getSource());
 
         // when called again for the same eload should return the same submission ID
-        mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId")
+        mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId?source=" + source)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("submissionId").value(submissionId));
+    }
+
+    @Test
+    @Transactional
+    public void testPutSubmissionIdForEload_Success() throws Exception {
+        Integer eload = 123;
+        String submissionId = UUID.randomUUID().toString();
+        String source = "eva-sub-cli";
+
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("eload", eload);
+        rootNode.put("submissionId", submissionId);
+        rootNode.put("source", source);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        mvc.perform(put("/v1/admin/submission/eload/submissionId")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionEload submissionEload = submissionEloadRepository.findByEload(eload);
+        assertEquals(eload, submissionEload.getEload());
+        assertEquals(submissionId, submissionEload.getSubmissionId());
+        assertEquals(source, submissionEload.getSource());
+    }
+
+    @Test
+    @Transactional
+    public void testPutSubmissionIdForEload_ErrorRequiredFieldsAreMissing() throws Exception {
+        Integer eload = 123;
+        String submissionId = UUID.randomUUID().toString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("eload", eload);
+        rootNode.put("submissionId", submissionId);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        mvc.perform(put("/v1/admin/submission/eload/submissionId")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpectAll(status().isBadRequest(),
+                        content().string("Missing values for some of the required fields. submissionId: " + submissionId + ", eload: 123, source: "));
+    }
+
+    @Test
+    @Transactional
+    public void testPutSubmissionIdForEload_EntriesAlreadyExistForSubmissionIdAndEload() throws Exception {
+        Integer eload_1 = 123;
+        Integer eload_2 = 456;
+        String submissionId_1 = UUID.randomUUID().toString();
+        String submissionId_2 = UUID.randomUUID().toString();
+        String source = "eva-sub-cli";
+
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("eload", eload_1);
+        rootNode.put("submissionId", submissionId_1);
+        rootNode.put("source", source);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        SubmissionEload submissionEload = new SubmissionEload(submissionId_1, eload_2, source);
+        submissionEloadRepository.save(submissionEload);
+
+        mvc.perform(put("/v1/admin/submission/eload/submissionId")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpectAll(status().isConflict(),
+                        content().string("Can't store submissionId-eload (" + submissionId_1 + " - 123). " +
+                                "There already exists values pertaining to one of them. Existing values submissionId-eload (" + submissionId_1 + " - 456)."));
+
+        submissionEload = new SubmissionEload(submissionId_2, eload_1, source);
+        submissionEloadRepository.save(submissionEload);
+
+        mvc.perform(put("/v1/admin/submission/eload/submissionId")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpectAll(status().isConflict(),
+                        content().string("Can't store submissionId-eload (" + submissionId_1 + " - " + eload_1 + "). " +
+                                "There already exists values pertaining to them. (" + submissionId_2 + " - " + eload_1 + "), " +
+                                "(" + submissionId_1 + " - " + eload_2 + ")"));
     }
 
     @Disabled

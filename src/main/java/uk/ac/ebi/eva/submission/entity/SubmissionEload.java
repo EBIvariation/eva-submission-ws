@@ -17,9 +17,10 @@ public class SubmissionEload {
 
     }
 
-    public SubmissionEload(String submissionId, Integer eload) {
+    public SubmissionEload(String submissionId, Integer eload, String source) {
         this.submissionId = submissionId;
         this.eload = eload;
+        this.source = source;
     }
 
     @Id
@@ -31,13 +32,34 @@ public class SubmissionEload {
     @Column(nullable = false, unique = true)
     private Integer eload;
 
+    @NonNull
+    @Column(nullable = false)
+    private String source;
+
     public String getSubmissionId() {
         return submissionId;
+    }
+
+    public void setSubmissionId(@NonNull String submissionId) {
+        this.submissionId = submissionId;
     }
 
     @NonNull
     public Integer getEload() {
         return eload;
+    }
+
+    public void setEload(@NonNull Integer eload) {
+        this.eload = eload;
+    }
+
+    @NonNull
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(@NonNull String source) {
+        this.source = source;
     }
 
     @Override
@@ -58,6 +80,7 @@ public class SubmissionEload {
         return "SubmissionEload{" +
                 "submissionId='" + submissionId + '\'' +
                 ", eload=" + eload +
+                ", source='" + source + '\'' +
                 '}';
     }
 }
