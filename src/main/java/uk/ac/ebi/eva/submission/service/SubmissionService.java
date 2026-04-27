@@ -27,6 +27,7 @@ import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+import uk.ac.ebi.eva.submission.util.BioSamplesUtils;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.EnaUtils;
 import uk.ac.ebi.eva.submission.util.MailSender;
@@ -44,9 +45,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_ACCESSION;
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_OBJECT;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.DESCRIPTION;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.PROJECT;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.PROJECT_ACCESSION;
+import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.SAMPLE;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.SCHEMA;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.TAXONOMY_ID;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.TITLE;
@@ -88,6 +92,8 @@ public class SubmissionService {
 
     private EnaUtils enaUtils;
 
+    private BioSamplesUtils bioSamplesUtils;
+
     public SubmissionService(SubmissionRepository submissionRepository,
                              SubmissionAccountRepository submissionAccountRepository,
                              SubmissionDetailsRepository submissionDetailsRepository,
@@ -95,7 +101,7 @@ public class SubmissionService {
                              SubmissionEloadRepository submissionEloadRepository,
                              GlobusDirectoryProvisioner globusDirectoryProvisioner,
                              MailSender mailSender, EmailNotificationHelper emailHelper,
-                             EnaUtils enaUtils) {
+                             EnaUtils enaUtils, BioSamplesUtils bioSamplesUtils) {
         this.submissionRepository = submissionRepository;
         this.submissionAccountRepository = submissionAccountRepository;
         this.submissionDetailsRepository = submissionDetailsRepository;
@@ -105,6 +111,7 @@ public class SubmissionService {
         this.mailSender = mailSender;
         this.emailHelper = emailHelper;
         this.enaUtils = enaUtils;
+        this.bioSamplesUtils = bioSamplesUtils;
     }
 
     public Submission initiateSubmission(SubmissionAccount submissionAccount) {
@@ -282,16 +289,13 @@ public class SubmissionService {
                 PROJECT_DESCRIPTION_LENGTH));
 
         // check all required parameters are present, raise exception if anything is missing
-        if (Strings.isEmpty(projectTitle) || Strings.isEmpty(projectDescription) || Strings.isEmpty(projectTaxonomy)) {
+        if (Strings.isEmpty(projectTitle) || Strings.isEmpty(projectDescription)) {
             List<String> missingParameters = new ArrayList<>();
             if (Strings.isEmpty(projectTitle)) {
                 missingParameters.add("project title");
             }
             if (Strings.isEmpty(projectDescription)) {
                 missingParameters.add("project description");
-            }
-            if (Strings.isEmpty(projectTaxonomy)) {
-                missingParameters.add("project taxonomy");
             }
 
             if (Strings.isEmpty(projectAccession)) {
@@ -309,6 +313,47 @@ public class SubmissionService {
         projectDetails.put(TAXONOMY_ID, projectTaxonomy);
 
         return projectDetails;
+    }
+
+    public boolean isHumanDataInSubmission(JsonNode metadataJson, String projectTaxonomy) {
+        if (!Strings.isEmpty(projectTaxonomy)) {
+            return "9606".equals(projectTaxonomy);
+        }
+
+        JsonNode sampleArray = metadataJson.get(SAMPLE);
+        if (sampleArray == null || !sampleArray.isArray()) {
+            return false;
+        }
+
+        int bioSamplesApiQueriedCount = 0;
+        for (JsonNode sampleNode : sampleArray) {
+            // samples defined in JSON : check all, no limit
+            JsonNode bioSampleObject = sampleNode.path(BIO_SAMPLE_OBJECT);
+            if (!bioSampleObject.isMissingNode()) {
+                if ("9606".equals(bioSampleObject.path(TAXONOMY_ID).asText(null))) {
+                    return true;
+                }
+                String organism = bioSampleObject.path("characteristics").path("organism")
+                        .path(0).path("text").asText(null);
+                if ("Homo sapiens".equalsIgnoreCase(organism)) {
+                    return true;
+                }
+                continue;
+            }
+
+            // Pre-registered sample: query BioSamples API, limited to 5 calls
+            if (bioSamplesApiQueriedCount >= 5) {
+                continue;
+            }
+            String accession = sampleNode.path(BIO_SAMPLE_ACCESSION).asText(null);
+            if (accession != null && !accession.isEmpty()) {
+                if ("9606".equals(bioSamplesUtils.getTaxIdFromBioSamples(accession))) {
+                    return true;
+                }
+                bioSamplesApiQueriedCount++;
+            }
+        }
+        return false;
     }
 
     public Submission uploadMetadataJsonAndMarkUploaded(String submissionId, String projectTitle,
