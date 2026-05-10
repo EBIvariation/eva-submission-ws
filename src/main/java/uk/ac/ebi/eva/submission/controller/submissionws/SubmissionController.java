@@ -49,6 +49,9 @@ public class SubmissionController extends BaseController {
     public static final String TAXONOMY_ID = "taxId";
     public static final String ANALYSIS = "analysis";
     public static final String SCHEMA = "$schema";
+    public static final String SAMPLE = "sample";
+    public static final String BIO_SAMPLE_ACCESSION = "bioSampleAccession";
+    public static final String BIO_SAMPLE_OBJECT = "bioSampleObject";
 
     public static final String DEPRECATED_VERSION = "v0.5.0";
     public static final String UNSUPPORTED_VERSION = "v0.4.13";
@@ -164,7 +167,8 @@ public class SubmissionController extends BaseController {
 
             // check if consent statement is required
             ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
-            boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(Integer.parseInt(projectTaxonomy), analysisNode);
+            boolean isHuman = submissionService.isHumanDataInSubmission(metadataJson, projectTaxonomy);
+            boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(isHuman, analysisNode);
 
             // send notification to user
             submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
@@ -198,11 +202,10 @@ public class SubmissionController extends BaseController {
         }
     }
 
-    private boolean checkConsentStatementIsNeededForTheSubmission(int taxonomyId, ArrayNode analysisNode) {
-        if (taxonomyId != 9606) {
+    private boolean checkConsentStatementIsNeededForTheSubmission(boolean isHuman, ArrayNode analysisNode) {
+        if (!isHuman) {
             return false;
         }
-
         Set<String> evidenceTypes = new HashSet<>();
         for (JsonNode node : analysisNode) {
             String evidenceType = node.path("evidenceType").asText(null);
@@ -210,11 +213,6 @@ public class SubmissionController extends BaseController {
                 evidenceTypes.add(evidenceType);
             }
         }
-
-        if (evidenceTypes.size() == 0 || evidenceTypes.contains("genotype")) {
-            return true;
-        }
-
-        return false;
+        return evidenceTypes.isEmpty() || evidenceTypes.contains("genotype");
     }
 }

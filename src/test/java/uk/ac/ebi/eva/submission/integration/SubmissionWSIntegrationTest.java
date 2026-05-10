@@ -119,6 +119,9 @@ public class SubmissionWSIntegrationTest {
     private EnaDownloader enaDownloader;
 
     @MockBean
+    private uk.ac.ebi.eva.submission.util.BioSamplesDownloader bioSamplesDownloader;
+
+    @MockBean
     private WebinTokenService webinTokenService;
 
     @MockBean
@@ -891,6 +894,148 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
+    public void testUploadMetadataJsonAndMarkUploadedHumanBioSampleAccession() throws Exception {
+        String projectAccession = "PRJEB12345";
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        String bioSampleAccession = "SAMEA12345";
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("projectAccession", projectAccession);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode1 = mapper.createObjectNode();
+        analysisNode1.put("analysisAlias", "A1");
+        analysisArrayNode.add(analysisNode1);
+
+        ArrayNode sampleArrayNode = mapper.createArrayNode();
+        ObjectNode sampleNode1 = mapper.createObjectNode();
+        sampleNode1.put("bioSampleAccession", bioSampleAccession);
+        ArrayNode analysisAliasNode = mapper.createArrayNode();
+        analysisAliasNode.add("A1");
+        sampleNode1.put("analysisAlias", analysisAliasNode);
+        sampleArrayNode.add(sampleNode1);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("sample", sampleArrayNode);
+
+        ObjectNode globusRootNode = mapper.createObjectNode();
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        dataNodeArray.add(dataNode1);
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId))
+                .thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        String xmlString = "<PROJECT_SET><PROJECT>" +
+                "<TITLE>" + projectTitle + "</TITLE>" +
+                "<DESCRIPTION>" + projectDescription + "</DESCRIPTION>" +
+                "</PROJECT></PROJECT_SET>";
+        Document xmlDoc = builder.parse(new InputSource(new StringReader(xmlString)));
+        when(enaDownloader.downloadXmlFromEna(projectAccession)).thenReturn(xmlDoc);
+
+        when(bioSamplesDownloader.downloadSampleFromBioSamples(bioSampleAccession))
+                .thenReturn("{\"taxId\": 9606, \"accession\": \"" + bioSampleAccession + "\"}");
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        assertEmailsSentToUserAndHelpDesk(true, true);
+    }
+
+    @Test
+    @Transactional
+    public void testUploadMetadataJsonAndMarkUploadedHumanSampleJson() throws Exception {
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", projectTitle);
+        projectNode.put("description", projectDescription);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode1 = mapper.createObjectNode();
+        analysisNode1.put("analysisAlias", "A1");
+        analysisArrayNode.add(analysisNode1);
+
+        ArrayNode sampleArrayNode = mapper.createArrayNode();
+        ObjectNode sampleNode1 = mapper.createObjectNode();
+        ObjectNode bioSampleObject = mapper.createObjectNode();
+        bioSampleObject.put("name", "sample1");
+        ObjectNode characteristics = mapper.createObjectNode();
+        ArrayNode organismArray = mapper.createArrayNode();
+        ObjectNode organism = mapper.createObjectNode();
+        organism.put("text", "Homo sapiens");
+        organismArray.add(organism);
+        characteristics.put("organism", organismArray);
+        bioSampleObject.put("characteristics", characteristics);
+        sampleNode1.put("bioSampleObject", bioSampleObject);
+        ArrayNode analysisAliasNode = mapper.createArrayNode();
+        analysisAliasNode.add("A1");
+        sampleNode1.put("analysisAlias", analysisAliasNode);
+        sampleArrayNode.add(sampleNode1);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("sample", sampleArrayNode);
+
+        ObjectNode globusRootNode = mapper.createObjectNode();
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        ObjectNode dataNode1 = mapper.createObjectNode();
+        dataNode1.put("name", "file1.vcf");
+        dataNode1.put("size", 12345L);
+        dataNodeArray.add(dataNode1);
+        globusRootNode.put("DATA", dataNodeArray);
+
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId))
+                .thenReturn(mapper.writeValueAsString(globusRootNode));
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        assertEmailsSentToUserAndHelpDesk(true, true);
+    }
+
+    @Test
+    @Transactional
     public void testMarkSubmissionUploadNoFileInfoInMetadatajson() throws Exception {
         when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn("");
 
@@ -1092,7 +1237,7 @@ public class SubmissionWSIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Some of the required parameters are missing from the metadata. " +
-                        "Missing parameters: [project description, project taxonomy]"));
+                        "Missing parameters: [project description]"));
     }
 
 
@@ -1147,7 +1292,7 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Could not retrieve some of the required parameters from ENA " +
                         "for the project " + projectAccession + ". " +
-                        "Missing parameters: [project title, project description, project taxonomy]"));
+                        "Missing parameters: [project title, project description]"));
     }
 
 
