@@ -490,27 +490,41 @@ public class SubmissionWSIntegrationTest {
                         .headers(httpHeaders)
                         .content(mapper.writeValueAsString(metadataRootNode))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("You are using version v0.3.9 of eva-sub-cli which is not supported. " +
+                        "Please upgrade to the latest version to avoid future submission failures."));
+    }
 
-        Submission submission = submissionRepository.findBySubmissionId(submissionId);
-        assertThat(submission).isNotNull();
-        assertThat(submission.getSubmissionId()).isEqualTo(submissionId);
-        assertThat(submission.getStatus()).isEqualTo(SubmissionStatus.UPLOADED.toString());
-        assertThat(submission.getUploadedTime()).isNotNull();
-        assertThat(submission.getCompletionTime()).isNull();
+    @Test
+    @Transactional
+    public void testUploadMetadataJsonAndMarkUploaded_NoVersion() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
 
-        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
-        assertThat(submissionDetails).isNotNull();
-        assertThat(submissionDetails.getSubmissionId()).isEqualTo(submissionId);
-        assertThat(submissionDetails.getProjectTitle()).isEqualTo(projectTitle);
-        assertThat(submissionDetails.getProjectDescription()).isEqualTo(projectDescription);
-        assertThat(submissionDetails.getMetadataJson()).isNotNull();
-        assertThat(submissionDetails.getMetadataJson().get("project").get("title").asText()).isEqualTo(projectTitle);
-        assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
+        ObjectNode metadataRootNode = mapper.createObjectNode();
 
-        // assert email sent to user and helpdesk
-        assertEmailsSentToUserAndHelpDesk(false, true);
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", "test_project_title");
+        projectNode.put("description", "test_project_description");
+        projectNode.put("taxId", 9606);
 
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        filesArrayNode.add(fileNode1);
+
+        metadataRootNode.put("project", projectNode);
+        metadataRootNode.put("files", filesArrayNode);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(metadataRootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("You are using version < v0.4.13 of eva-sub-cli which is not supported. " +
+                        "Please upgrade to the latest version to avoid future submission failures."));
     }
 
     @Test
@@ -555,6 +569,7 @@ public class SubmissionWSIntegrationTest {
         metadataRootNode.put("project", projectNode);
         metadataRootNode.put("files", filesArrayNode);
         metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         // create Globus list directory result json
         ObjectNode globusRootNode = mapper.createObjectNode();
@@ -599,7 +614,7 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
 
         // assert email sent to user and helpdesk
-        assertEmailsSentToUserAndHelpDesk(true, true);
+        assertEmailsSentToUserAndHelpDesk(true, false);
 
     }
 
@@ -646,6 +661,7 @@ public class SubmissionWSIntegrationTest {
         metadataRootNode.put("project", projectNode);
         metadataRootNode.put("files", filesArrayNode);
         metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         // create Globus list directory result json
         ObjectNode globusRootNode = mapper.createObjectNode();
@@ -690,7 +706,7 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getMetadataJson().get("project").get("description").asText()).isEqualTo(projectDescription);
 
         // assert email sent to user and helpdesk
-        assertEmailsSentToUserAndHelpDesk(false, true);
+        assertEmailsSentToUserAndHelpDesk(false, false);
 
     }
 
@@ -733,6 +749,7 @@ public class SubmissionWSIntegrationTest {
         metadataRootNode.put("project", projectNode);
         metadataRootNode.put("files", filesArrayNode);
         metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         // create Globus list directory result json
         ObjectNode globusRootNode = mapper.createObjectNode();
@@ -780,7 +797,7 @@ public class SubmissionWSIntegrationTest {
         assertEquals(5500, submissionDetails.getMetadataJson().get("project").get("description").asText().length());
 
         // assert email sent to User and Helpdesk
-        assertEmailsSentToUserAndHelpDesk(true, true);
+        assertEmailsSentToUserAndHelpDesk(true, false);
     }
 
     private String buildLargeStringOfLength(int length) {
@@ -830,6 +847,7 @@ public class SubmissionWSIntegrationTest {
         metadataRootNode.put("project", projectNode);
         metadataRootNode.put("files", filesArrayNode);
         metadataRootNode.put("analysis", analysisArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         // create Globus list directory result json
         ObjectNode globusRootNode = mapper.createObjectNode();
@@ -888,7 +906,7 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getMetadataJson().get("project").get("projectAccession").asText()).isEqualTo(projectAccession);
 
         // assert email sent to user and helpdesk
-        assertEmailsSentToUserAndHelpDesk(false, true);
+        assertEmailsSentToUserAndHelpDesk(false, false);
 
     }
 
@@ -930,6 +948,7 @@ public class SubmissionWSIntegrationTest {
         metadataRootNode.put("files", filesArrayNode);
         metadataRootNode.put("analysis", analysisArrayNode);
         metadataRootNode.put("sample", sampleArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         ObjectNode globusRootNode = mapper.createObjectNode();
         ArrayNode dataNodeArray = mapper.createArrayNode();
@@ -962,7 +981,7 @@ public class SubmissionWSIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-        assertEmailsSentToUserAndHelpDesk(true, true);
+        assertEmailsSentToUserAndHelpDesk(true, false);
     }
 
     @Test
@@ -1011,6 +1030,7 @@ public class SubmissionWSIntegrationTest {
         metadataRootNode.put("files", filesArrayNode);
         metadataRootNode.put("analysis", analysisArrayNode);
         metadataRootNode.put("sample", sampleArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         ObjectNode globusRootNode = mapper.createObjectNode();
         ArrayNode dataNodeArray = mapper.createArrayNode();
@@ -1031,7 +1051,7 @@ public class SubmissionWSIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-        assertEmailsSentToUserAndHelpDesk(true, true);
+        assertEmailsSentToUserAndHelpDesk(true, false);
     }
 
     @Test
@@ -1044,6 +1064,7 @@ public class SubmissionWSIntegrationTest {
         ObjectNode metadataRootNode = mapper.createObjectNode();
         ArrayNode filesArrayNode = mapper.createArrayNode();
         metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
         mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
@@ -1069,7 +1090,7 @@ public class SubmissionWSIntegrationTest {
         fileNode1.put("fileSize", 12345L);
         filesArrayNode.add(fileNode1);
         metadataRootNode.put("files", filesArrayNode);
-
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(userToken);
@@ -1104,6 +1125,7 @@ public class SubmissionWSIntegrationTest {
         dataNodeArray.add(dataNode1);
         globusRootNode.put("DATA", dataNodeArray);
 
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
         when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -1139,6 +1161,7 @@ public class SubmissionWSIntegrationTest {
         dataNodeArray.add(dataNode1);
         globusRootNode.put("DATA", dataNodeArray);
 
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
         when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId)).thenReturn(mapper.writeValueAsString(globusRootNode));
 
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -1169,6 +1192,7 @@ public class SubmissionWSIntegrationTest {
         filesArrayNode.add(fileNode1);
         filesArrayNode.add(fileNode2);
         metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         // create Globus list directory result json
         ObjectNode globusRootNode = mapper.createObjectNode();
@@ -1214,6 +1238,7 @@ public class SubmissionWSIntegrationTest {
 
         metadataRootNode.put("project", projectNode);
         metadataRootNode.put("files", filesArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
 
         // create globus list directory json
         ObjectNode globusRootNode = mapper.createObjectNode();
@@ -1278,6 +1303,7 @@ public class SubmissionWSIntegrationTest {
 
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
         String xmlString = "<PROJECT_SET> <PROJECT> </PROJECT> </PROJECT_SET>";
         Document xmlDoc = builder.parse(new InputSource(new StringReader(xmlString)));
 

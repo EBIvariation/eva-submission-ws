@@ -144,8 +144,7 @@ public class SubmissionController extends BaseController {
             String version = submissionService.getVersionFromMetadataJson(metadataJson);
             if (version != null && Utils.compareVersions(version, DEPRECATED_VERSION) > 0) {
                 deprecatedVersion = false;
-            } else if (false) {
-                // TODO: once we are ready, update this else if to else, so that we can throw an exception in case user is using unsupported version.
+            } else {
                 if (version == null || version.isEmpty()) {
                     version = "< " + UNSUPPORTED_VERSION;
                 }
