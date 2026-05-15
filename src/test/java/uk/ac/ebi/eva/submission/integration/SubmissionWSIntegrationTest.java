@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +51,7 @@ import uk.ac.ebi.eva.submission.service.WebinTokenService;
 import uk.ac.ebi.eva.submission.util.EnaDownloader;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
@@ -96,6 +97,9 @@ public class SubmissionWSIntegrationTest {
 
     @Value("${eva.helpdesk.email}")
     private String EVA_HELPDESK_EMAIL;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @Autowired
     private EntityManager entityManager;
@@ -1647,7 +1651,6 @@ public class SubmissionWSIntegrationTest {
                                 "(" + submissionId_1 + " - " + eload_2 + ")"));
     }
 
-    @Disabled
     @Test
     @Transactional
     public void testSubmissionProcessingHistory() throws Exception {
@@ -1664,6 +1667,11 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
         assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.READY_FOR_PROCESSING.toString());
 
+        entityManager.flush();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        TestTransaction.start();
+
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.FAILURE)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1673,6 +1681,11 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionProc.getSubmissionId()).isEqualTo(submissionId);
         assertThat(submissionProc.getStep()).isEqualTo(SubmissionProcessingStep.VALIDATION.toString());
         assertThat(submissionProc.getStatus()).isEqualTo(SubmissionProcessingStatus.FAILURE.toString());
+
+        entityManager.flush();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        TestTransaction.start();
 
         // Assert Submission Processing History Entry inserted successfully
         AuditReader auditReader = AuditReaderFactory.get(entityManager);
