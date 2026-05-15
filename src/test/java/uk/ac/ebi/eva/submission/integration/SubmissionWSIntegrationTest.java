@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.transaction.TestTransaction;
@@ -48,6 +49,7 @@ import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.service.LoginMethod;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
+import uk.ac.ebi.eva.submission.controller.authentication.BruteForceProtectionService;
 import uk.ac.ebi.eva.submission.util.EnaDownloader;
 
 import javax.persistence.EntityManager;
@@ -63,6 +65,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -144,13 +148,16 @@ public class SubmissionWSIntegrationTest {
     private String submissionId;
 
     @Container
-    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:9.6")
+    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:11")
             .withInitScript("init.sql");
     @Container
     static GenericContainer<?> mailhog = new GenericContainer<>(DockerImageName.parse("mailhog/mailhog"))
             .withExposedPorts(1025, 8025);
     @Autowired
     private SubmissionEloadRepository submissionEloadRepository;
+
+    @Autowired
+    private BruteForceProtectionService bruteForceProtectionService;
 
     @DynamicPropertySource
     static void dataSourceProperties(DynamicPropertyRegistry registry) {
@@ -176,6 +183,10 @@ public class SubmissionWSIntegrationTest {
 
         SubmissionAccount submissionAccount = new SubmissionAccount("eva", "webin", "eva", "eva", "eva@ebi.ac.uk");
         submissionAccountRepository.save(submissionAccount);
+
+        // Reset brute-force state between tests so they don't interfere with each other
+        ((Map<?, ?>) ReflectionTestUtils.getField(bruteForceProtectionService, "attempts")).clear();
+        ((Map<?, ?>) ReflectionTestUtils.getField(bruteForceProtectionService, "lockouts")).clear();
     }
 
     @Test
@@ -1870,6 +1881,34 @@ public class SubmissionWSIntegrationTest {
         }
     }
 
+
+    @Test
+    public void testAdminBruteForceProtection() throws Exception {
+        HttpHeaders badHeaders = new HttpHeaders();
+        badHeaders.setBasicAuth(TEST_ADMIN_USERNAME, "wrong-password");
+
+        // 10 failed attempts should not yet trigger lockout (each attempt returns 401)
+        for (int i = 0; i < 10; i++) {
+            mvc.perform(put("/v1/admin/submission/" + submissionId + "/status/COMPLETED")
+                            .headers(badHeaders)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // 11th attempt should be blocked (429)
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/status/COMPLETED")
+                        .headers(badHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isTooManyRequests());
+
+        // Valid credentials are also blocked while IP is locked out
+        HttpHeaders goodHeaders = new HttpHeaders();
+        goodHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/status/COMPLETED")
+                        .headers(goodHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isTooManyRequests());
+    }
 
     private static List<String> getStringList(JsonNode node) {
         if (node.isArray()) {
