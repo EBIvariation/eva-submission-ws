@@ -47,17 +47,17 @@ public class HTMLHelper {
     }
 
     public HTMLHelper addLink(String url, String text) {
-        htmlBuilder.append("<a href=\"" + esc(url) + "\">" + esc(text) + "</a>");
+        htmlBuilder.append("<a href=\"" + url + "\">" + esc(text) + "</a>");
         return this;
     }
 
     public HTMLHelper addEmailLink(String email, String text) {
-        htmlBuilder.append("<a href=\"mailto:" + esc(email) + "\">" + esc(text) + "</a>");
+        htmlBuilder.append("<a href=\"mailto:" + email + "\">" + esc(text) + "</a>");
         return this;
     }
 
     public HTMLHelper addEmailLinkWithSize(String email, String text, int size) {
-        htmlBuilder.append("<span style=\"font-size:" + size + "px;\"> <a href=\"mailto:" + esc(email) + "\">" + esc(text) + "</a> </span>");
+        htmlBuilder.append("<span style=\"font-size:" + size + "px;\"> <a href=\"mailto:" + email + "\">" + esc(text) + "</a> </span>");
         return this;
     }
 
