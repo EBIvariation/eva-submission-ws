@@ -1,7 +1,6 @@
 package uk.ac.ebi.eva.submission.controller.authentication;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
@@ -10,7 +9,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-@Component
 public class BruteForceProtectionFilter extends OncePerRequestFilter {
 
     private final BruteForceProtectionService bruteForceService;

@@ -39,7 +39,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 
     private final CustomBasicAuthenticationEntryPoint customBasicAuthenticationEntryPoint;
 
-    private final BruteForceProtectionFilter bruteForceProtectionFilter;
+    private final BruteForceProtectionService bruteForceProtectionService;
 
     @Value("${controller.auth.admin.username}")
     private String USERNAME_ADMIN;
@@ -49,9 +49,9 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 
     @Autowired
     public SecurityConfiguration(CustomBasicAuthenticationEntryPoint customBasicAuthenticationEntryPoint,
-                                  BruteForceProtectionFilter bruteForceProtectionFilter) {
+                                  BruteForceProtectionService bruteForceProtectionService) {
         this.customBasicAuthenticationEntryPoint = customBasicAuthenticationEntryPoint;
-        this.bruteForceProtectionFilter = bruteForceProtectionFilter;
+        this.bruteForceProtectionService = bruteForceProtectionService;
     }
 
     @Bean
@@ -59,8 +59,8 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
         return new BCryptPasswordEncoder();
     }
 
-    @Autowired
-    public void configureGlobalSecurity(AuthenticationManagerBuilder auth) throws Exception {
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
         auth.inMemoryAuthentication()
                 .withUser(USERNAME_ADMIN)
                 .password(passwordEncoder().encode(PASSWORD_ADMIN))
@@ -79,6 +79,6 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
                 .and().httpBasic().realmName(REALM)
                 .authenticationEntryPoint(customBasicAuthenticationEntryPoint)
                 .and().sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                .and().addFilterBefore(bruteForceProtectionFilter, BasicAuthenticationFilter.class);
+                .and().addFilterBefore(new BruteForceProtectionFilter(bruteForceProtectionService), BasicAuthenticationFilter.class);
     }
 }
