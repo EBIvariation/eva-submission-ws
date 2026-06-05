@@ -22,6 +22,7 @@ import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionSummaryDto;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
@@ -451,6 +452,20 @@ public class SubmissionService {
 
     public SubmissionDetails getSubmissionDetail(String submissionId) {
         return submissionDetailsRepository.findBySubmissionId(submissionId);
+    }
+
+    public List<SubmissionSummaryDto> getSubmissionsSummary(String submissionAccount, LocalDateTime uploadedAfter,
+                                                            String source, SubmissionProcessingStep processingStep,
+                                                            SubmissionProcessingStatus processingStatus) {
+        return submissionRepository.findSubmissionSummaries(
+                submissionAccount, uploadedAfter, source,
+                processingStep != null ? processingStep.toString() : null,
+                processingStatus != null ? processingStatus.toString() : null
+        ).stream().map(p -> new SubmissionSummaryDto(
+                p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
+                p.getEloadSource(), p.getEloadId(),
+                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle()
+        )).collect(Collectors.toList());
     }
 
 }

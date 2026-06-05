@@ -71,6 +71,8 @@ import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -1810,6 +1812,16 @@ public class SubmissionWSIntegrationTest {
 
     }
 
+    private String createNewSubmissionEntryForAccount(SubmissionAccount submissionAccount, SubmissionStatus status) {
+        String submissionId = UUID.randomUUID().toString();
+        Submission submission = new Submission(submissionId);
+        submission.setSubmissionAccount(submissionAccount);
+        submission.setStatus(status.toString());
+        submission.setInitiationTime(LocalDateTime.now());
+        submissionRepository.save(submission);
+        return submissionId;
+    }
+
     private void assertEmailsSentToUserAndHelpDesk(boolean shouldContainConsentStatement, boolean deprecatedVersion) throws JsonProcessingException {
         String mailhogUrl = "http://" + mailhog.getHost() + ":" + mailhog.getMappedPort(8025) + "/api/v2/messages";
         RestTemplate restTemplate = new RestTemplate();
@@ -1881,6 +1893,21 @@ public class SubmissionWSIntegrationTest {
         }
     }
 
+
+    @Test
+    @Transactional
+    public void testGetSubmissions() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+        String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submissions")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].submissionId").value(hasItems(submissionId, submissionId1, submissionId2)));
+    }
 
     @Test
     public void testAdminBruteForceProtection() throws Exception {
