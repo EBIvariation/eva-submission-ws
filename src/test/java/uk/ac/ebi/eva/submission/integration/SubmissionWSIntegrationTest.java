@@ -1910,6 +1910,24 @@ public class SubmissionWSIntegrationTest {
     }
 
     @Test
+    @Transactional
+    public void testGetSubmissions_FilterByAccount() throws Exception {
+        SubmissionAccount otherAccount = new SubmissionAccount("otherAccountId", "webin", "Other", "User", "other@test.com");
+        submissionAccountRepository.save(otherAccount);
+        String otherSubmissionId = createNewSubmissionEntryForAccount(otherAccount, SubmissionStatus.OPEN);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submissions")
+                        .param("submissionAccount", webinUserAccount.getId())
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].submissionId").value(hasItem(submissionId)))
+                .andExpect(jsonPath("$[*].submissionId").value(not(hasItem(otherSubmissionId))));
+    }
+
+    @Test
     public void testAdminBruteForceProtection() throws Exception {
         HttpHeaders badHeaders = new HttpHeaders();
         badHeaders.setBasicAuth(TEST_ADMIN_USERNAME, "wrong-password");
