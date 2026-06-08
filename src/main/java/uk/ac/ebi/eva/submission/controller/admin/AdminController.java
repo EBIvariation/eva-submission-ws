@@ -7,6 +7,9 @@ import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -164,9 +167,10 @@ public class AdminController extends BaseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime uploadedAfter,
             @RequestParam(required = false) String source,
             @RequestParam(required = false) SubmissionProcessingStep processingStep,
-            @RequestParam(required = false) SubmissionProcessingStatus processingStatus) {
-        List<SubmissionSummaryDto> result = submissionService.getSubmissionsSummary(
-                submissionAccount, uploadedAfter, source, processingStep, processingStatus);
+            @RequestParam(required = false) SubmissionProcessingStatus processingStatus,
+            @PageableDefault(size = 20, sort = "submissionId") Pageable pageable) {
+        Page<SubmissionSummaryDto> result = submissionService.getSubmissionsSummary(
+                submissionAccount, uploadedAfter, source, processingStep, processingStatus, pageable);
         return new ResponseEntity<>(result, HttpStatus.OK);
     }
 

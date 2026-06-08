@@ -1897,8 +1897,16 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testGetSubmissions() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
         String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+        submissionEloadRepository.save(new SubmissionEload(submissionId1, 300, "eva-sub-cli"));
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.INGESTION, SubmissionProcessingStatus.RUNNING);
+        createNewSubmissionDetailEntry(submissionId1, "Project 1", "Description 1", mapper.createObjectNode());
+
         String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
+        submissionEloadRepository.save(new SubmissionEload(submissionId2, 301, "email"));
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION, SubmissionProcessingStatus.SUCCESS);
+        createNewSubmissionDetailEntry(submissionId2, "Project 2", "Description 2", mapper.createObjectNode());
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
@@ -1906,12 +1914,20 @@ public class SubmissionWSIntegrationTest {
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].submissionId").value(hasItems(submissionId, submissionId1, submissionId2)));
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").isNumber())
+                .andExpect(jsonPath("$.content[*].submissionId").value(hasItems(submissionId1, submissionId2)));
     }
 
     @Test
     @Transactional
     public void testGetSubmissions_FilterByAccount() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String webinSubmissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+        submissionEloadRepository.save(new SubmissionEload(webinSubmissionId, 302, "eva-sub-cli"));
+        createNewSubmissionProcessingEntry(webinSubmissionId, SubmissionProcessingStep.INGESTION, SubmissionProcessingStatus.RUNNING);
+        createNewSubmissionDetailEntry(webinSubmissionId, "Project", "Description", mapper.createObjectNode());
+
         SubmissionAccount otherAccount = new SubmissionAccount("otherAccountId", "webin", "Other", "User", "other@test.com");
         submissionAccountRepository.save(otherAccount);
         String otherSubmissionId = createNewSubmissionEntryForAccount(otherAccount, SubmissionStatus.OPEN);
@@ -1923,8 +1939,8 @@ public class SubmissionWSIntegrationTest {
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].submissionId").value(hasItem(submissionId)))
-                .andExpect(jsonPath("$[*].submissionId").value(not(hasItem(otherSubmissionId))));
+                .andExpect(jsonPath("$.content[*].submissionId").value(hasItem(webinSubmissionId)))
+                .andExpect(jsonPath("$.content[*].submissionId").value(not(hasItem(otherSubmissionId))));
     }
 
     @Test
