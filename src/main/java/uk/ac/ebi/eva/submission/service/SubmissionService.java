@@ -459,11 +459,13 @@ public class SubmissionService {
     public Page<SubmissionSummaryDto> getSubmissionsSummary(String submissionAccount, LocalDateTime uploadedAfter,
                                                             String source, SubmissionProcessingStep processingStep,
                                                             SubmissionProcessingStatus processingStatus,
+                                                            String submissionId, Integer eloadId,
                                                             Pageable pageable) {
         return submissionRepository.findSubmissionSummaries(
                 submissionAccount, uploadedAfter, source,
                 processingStep != null ? processingStep.toString() : null,
                 processingStatus != null ? processingStatus.toString() : null,
+                submissionId, eloadId,
                 pageable
         ).map(p -> new SubmissionSummaryDto(
                 p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),

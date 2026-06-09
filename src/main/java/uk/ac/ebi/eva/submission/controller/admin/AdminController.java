@@ -159,7 +159,9 @@ public class AdminController extends BaseController {
             @Parameter(name = "uploadedAfter", description = "Filter submissions with uploadedTime >= this datetime (ISO-8601)", in = ParameterIn.QUERY),
             @Parameter(name = "source", description = "Filter by SubmissionEload source", in = ParameterIn.QUERY),
             @Parameter(name = "processingStep", description = "Filter by processing step (INGESTION, VALIDATION, BROKERING)", in = ParameterIn.QUERY),
-            @Parameter(name = "processingStatus", description = "Filter by processing status (READY_FOR_PROCESSING, FAILURE, SUCCESS, RUNNING, ON_HOLD)", in = ParameterIn.QUERY)
+            @Parameter(name = "processingStatus", description = "Filter by processing status (READY_FOR_PROCESSING, FAILURE, SUCCESS, RUNNING, ON_HOLD)", in = ParameterIn.QUERY),
+            @Parameter(name = "submissionId", description = "Filter by submission ID", in = ParameterIn.QUERY),
+            @Parameter(name = "eloadId", description = "Filter by ELOAD number", in = ParameterIn.QUERY)
     })
     @GetMapping("submissions")
     public ResponseEntity<?> getSubmissions(
@@ -168,9 +170,12 @@ public class AdminController extends BaseController {
             @RequestParam(required = false) String source,
             @RequestParam(required = false) SubmissionProcessingStep processingStep,
             @RequestParam(required = false) SubmissionProcessingStatus processingStatus,
+            @RequestParam(required = false) String submissionId,
+            @RequestParam(required = false) Integer eloadId,
             @PageableDefault(size = 20, sort = "submissionId") Pageable pageable) {
         Page<SubmissionSummaryDto> result = submissionService.getSubmissionsSummary(
-                submissionAccount, uploadedAfter, source, processingStep, processingStatus, pageable);
+                submissionAccount, uploadedAfter, source, processingStep, processingStatus,
+                submissionId, eloadId, pageable);
         return new ResponseEntity<>(result, HttpStatus.OK);
     }
 
