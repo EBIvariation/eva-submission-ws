@@ -7,8 +7,12 @@ import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -25,10 +29,12 @@ import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionSummaryDto;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -144,6 +150,33 @@ public class AdminController extends BaseController {
                                                      @RequestParam(value = "source") String source) {
         String submissionId = submissionService.getOrGenerateSubmissionIdForEload(eload, source);
         return new ResponseEntity<>(Collections.singletonMap("submissionId", submissionId), HttpStatus.OK);
+    }
+
+    @Operation(summary = "This endpoint lists submissions with optional filters and return information about the submission, account, eload and processing step",
+            security = {@SecurityRequirement(name = "basicAuth")})
+    @Parameters({
+            @Parameter(name = "submissionAccount", description = "Filter by submission account ID", in = ParameterIn.QUERY),
+            @Parameter(name = "uploadedAfter", description = "Filter submissions with uploadedTime >= this datetime (ISO-8601)", in = ParameterIn.QUERY),
+            @Parameter(name = "source", description = "Filter by submission source (email or eva-sub-cli)", in = ParameterIn.QUERY),
+            @Parameter(name = "processingStep", description = "Filter by processing step (INGESTION, VALIDATION, BROKERING)", in = ParameterIn.QUERY),
+            @Parameter(name = "processingStatus", description = "Filter by processing status (READY_FOR_PROCESSING, FAILURE, SUCCESS, RUNNING, ON_HOLD)", in = ParameterIn.QUERY),
+            @Parameter(name = "submissionId", description = "Filter by submission ID", in = ParameterIn.QUERY),
+            @Parameter(name = "eloadId", description = "Filter by ELOAD number", in = ParameterIn.QUERY)
+    })
+    @GetMapping("submissions")
+    public ResponseEntity<?> getSubmissions(
+            @RequestParam(required = false) String submissionAccount,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime uploadedAfter,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) SubmissionProcessingStep processingStep,
+            @RequestParam(required = false) SubmissionProcessingStatus processingStatus,
+            @RequestParam(required = false) String submissionId,
+            @RequestParam(required = false) Integer eloadId,
+            @PageableDefault(size = 20, sort = "submissionId") Pageable pageable) {
+        Page<SubmissionSummaryDto> result = submissionService.getSubmissionsSummary(
+                submissionAccount, uploadedAfter, source, processingStep, processingStatus,
+                submissionId, eloadId, pageable);
+        return new ResponseEntity<>(result, HttpStatus.OK);
     }
 
     @Operation(summary = "This endpoint stores the eload and the associated submission id.",

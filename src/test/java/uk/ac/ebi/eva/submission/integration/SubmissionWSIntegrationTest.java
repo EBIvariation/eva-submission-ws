@@ -71,6 +71,8 @@ import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -1810,6 +1812,16 @@ public class SubmissionWSIntegrationTest {
 
     }
 
+    private String createNewSubmissionEntryForAccount(SubmissionAccount submissionAccount, SubmissionStatus status) {
+        String submissionId = UUID.randomUUID().toString();
+        Submission submission = new Submission(submissionId);
+        submission.setSubmissionAccount(submissionAccount);
+        submission.setStatus(status.toString());
+        submission.setInitiationTime(LocalDateTime.now());
+        submissionRepository.save(submission);
+        return submissionId;
+    }
+
     private void assertEmailsSentToUserAndHelpDesk(boolean shouldContainConsentStatement, boolean deprecatedVersion) throws JsonProcessingException {
         String mailhogUrl = "http://" + mailhog.getHost() + ":" + mailhog.getMappedPort(8025) + "/api/v2/messages";
         RestTemplate restTemplate = new RestTemplate();
@@ -1881,6 +1893,55 @@ public class SubmissionWSIntegrationTest {
         }
     }
 
+
+    @Test
+    @Transactional
+    public void testGetSubmissions() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+        submissionEloadRepository.save(new SubmissionEload(submissionId1, 300, "eva-sub-cli"));
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.INGESTION, SubmissionProcessingStatus.RUNNING);
+        createNewSubmissionDetailEntry(submissionId1, "Project 1", "Description 1", mapper.createObjectNode());
+
+        String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
+        submissionEloadRepository.save(new SubmissionEload(submissionId2, 301, "email"));
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION, SubmissionProcessingStatus.SUCCESS);
+        createNewSubmissionDetailEntry(submissionId2, "Project 2", "Description 2", mapper.createObjectNode());
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submissions")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").isNumber())
+                .andExpect(jsonPath("$.content[*].submissionId").value(hasItems(submissionId1, submissionId2)));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissions_FilterByAccount() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String webinSubmissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+        submissionEloadRepository.save(new SubmissionEload(webinSubmissionId, 302, "eva-sub-cli"));
+        createNewSubmissionProcessingEntry(webinSubmissionId, SubmissionProcessingStep.INGESTION, SubmissionProcessingStatus.RUNNING);
+        createNewSubmissionDetailEntry(webinSubmissionId, "Project", "Description", mapper.createObjectNode());
+
+        SubmissionAccount otherAccount = new SubmissionAccount("otherAccountId", "webin", "Other", "User", "other@test.com");
+        submissionAccountRepository.save(otherAccount);
+        String otherSubmissionId = createNewSubmissionEntryForAccount(otherAccount, SubmissionStatus.OPEN);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        mvc.perform(get("/v1/admin/submissions")
+                        .param("submissionAccount", webinUserAccount.getId())
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].submissionId").value(hasItem(webinSubmissionId)))
+                .andExpect(jsonPath("$.content[*].submissionId").value(not(hasItem(otherSubmissionId))));
+    }
 
     @Test
     public void testAdminBruteForceProtection() throws Exception {
