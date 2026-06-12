@@ -157,7 +157,7 @@ public class AdminController extends BaseController {
     @Parameters({
             @Parameter(name = "submissionAccount", description = "Filter by submission account ID", in = ParameterIn.QUERY),
             @Parameter(name = "uploadedAfter", description = "Filter submissions with uploadedTime >= this datetime (ISO-8601)", in = ParameterIn.QUERY),
-            @Parameter(name = "source", description = "Filter by SubmissionEload source", in = ParameterIn.QUERY),
+            @Parameter(name = "source", description = "Filter by submission source (email or CLI)", in = ParameterIn.QUERY),
             @Parameter(name = "processingStep", description = "Filter by processing step (INGESTION, VALIDATION, BROKERING)", in = ParameterIn.QUERY),
             @Parameter(name = "processingStatus", description = "Filter by processing status (READY_FOR_PROCESSING, FAILURE, SUCCESS, RUNNING, ON_HOLD)", in = ParameterIn.QUERY),
             @Parameter(name = "submissionId", description = "Filter by submission ID", in = ParameterIn.QUERY),
