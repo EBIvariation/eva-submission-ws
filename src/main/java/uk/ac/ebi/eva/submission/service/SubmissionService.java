@@ -37,6 +37,7 @@ import uk.ac.ebi.eva.submission.util.MailSender;
 import uk.ac.ebi.eva.submission.util.Utils;
 
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -470,8 +471,18 @@ public class SubmissionService {
         ).map(p -> new SubmissionSummaryDto(
                 p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
                 p.getEloadSource(), p.getEloadId(),
-                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle()
+                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(), p.getReleaseDate()
         ));
+    }
+
+    public SubmissionDetails setReleaseDate(String submissionId, LocalDate releaseDate) {
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        if (submissionDetails == null) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
+        submissionDetails.setReleaseDate(releaseDate);
+
+        return submissionDetailsRepository.save(submissionDetails);
     }
 
 }

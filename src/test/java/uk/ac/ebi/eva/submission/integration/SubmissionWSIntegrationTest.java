@@ -23,6 +23,7 @@ import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -57,6 +58,7 @@ import javax.persistence.EntityManagerFactory;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -634,7 +636,6 @@ public class SubmissionWSIntegrationTest {
         assertEmailsSentToUserAndHelpDesk(true, false);
 
     }
-
 
     @Test
     @Transactional
@@ -1941,6 +1942,39 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[*].submissionId").value(hasItem(webinSubmissionId)))
                 .andExpect(jsonPath("$.content[*].submissionId").value(not(hasItem(otherSubmissionId))));
+    }
+
+    @Test
+    @Transactional
+    public void testSetReleaseDate() throws Exception {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/releaseDate/2027-01-01")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getReleaseDate()).isNotNull();
+        assertThat(submissionDetails.getReleaseDate()).isEqualTo(LocalDate.of(2027, 1, 1));
+    }
+
+    @Test
+    @Transactional
+    public void testSetReleaseDate_malformedDate() throws Exception {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/releaseDate/2027-01-01")
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getReleaseDate()).isNull();
     }
 
     @Test

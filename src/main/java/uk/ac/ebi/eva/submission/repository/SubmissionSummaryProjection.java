@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public interface SubmissionSummaryProjection {
@@ -11,4 +12,5 @@ public interface SubmissionSummaryProjection {
     String getProcessingStep();
     String getProcessingStatus();
     String getProjectTitle();
+    LocalDate getReleaseDate();
 }

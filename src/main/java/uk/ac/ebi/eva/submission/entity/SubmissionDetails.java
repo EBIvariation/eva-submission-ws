@@ -10,6 +10,7 @@ import javax.persistence.Id;
 import javax.persistence.OneToOne;
 import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
+import java.time.LocalDate;
 
 @Entity
 @Table(schema = "eva_submissions", name = "submission_details")
@@ -34,6 +35,9 @@ public class SubmissionDetails {
 
     @Column(columnDefinition = "jsonb", name = "metadata_json", nullable = false)
     private JsonNode metadataJson;
+
+    @Column(name = "release_date", nullable = true)
+    private LocalDate releaseDate;
 
     public SubmissionDetails() {
     }
@@ -76,5 +80,13 @@ public class SubmissionDetails {
 
     public void setMetadataJson(JsonNode metadataJson) {
         this.metadataJson = metadataJson;
+    }
+
+    public LocalDate getReleaseDate() {
+        return releaseDate;
+    }
+
+    public void setReleaseDate(LocalDate releaseDate) {
+        this.releaseDate = releaseDate;
     }
 }

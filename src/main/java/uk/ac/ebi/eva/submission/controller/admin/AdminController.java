@@ -34,6 +34,7 @@ import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -190,6 +191,28 @@ public class AdminController extends BaseController {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (DataIntegrityViolationException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.CONFLICT);
+        }
+    }
+
+    @Operation(summary = "Given a submission id, this endpoint updates the release date to the one provided",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission",
+                    required = true, in = ParameterIn.PATH),
+            @Parameter(name = "releaseDate", description = "Desired release date (ISO-8601 format) of the submission ",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @PutMapping("submission/{submissionId}/releaseDate/{releaseDate}")
+    public ResponseEntity<?> setReleaseDate(
+            @PathVariable("submissionId") String submissionId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate releaseDate
+    ) {
+        try {
+            SubmissionDetails submissionDetails = this.submissionService.setReleaseDate(submissionId, releaseDate);
+            return new ResponseEntity<>(submissionDetails, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
     }
 

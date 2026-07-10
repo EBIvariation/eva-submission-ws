@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.model;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class SubmissionSummaryDto {
@@ -12,11 +13,12 @@ public class SubmissionSummaryDto {
     private String processingStep;
     private String processingStatus;
     private String projectTitle;
+    private LocalDate releaseDate;
 
     public SubmissionSummaryDto(String submissionId, LocalDateTime uploadedTime, String accountId,
                                 String eloadSource, Integer eloadId,
                                 String processingStep, String processingStatus,
-                                String projectTitle) {
+                                String projectTitle, LocalDate releaseDate) {
         this.submissionId = submissionId;
         this.uploadedTime = uploadedTime;
         this.accountId = accountId;
@@ -25,6 +27,7 @@ public class SubmissionSummaryDto {
         this.processingStep = processingStep;
         this.processingStatus = processingStatus;
         this.projectTitle = projectTitle;
+        this.releaseDate = releaseDate;
     }
 
     public String getSubmissionId() {
@@ -57,5 +60,9 @@ public class SubmissionSummaryDto {
 
     public String getProjectTitle() {
         return projectTitle;
+    }
+
+    public LocalDate getReleaseDate() {
+        return releaseDate;
     }
 }
