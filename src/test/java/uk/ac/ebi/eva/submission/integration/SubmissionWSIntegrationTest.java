@@ -1947,6 +1947,13 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetReleaseDate() throws Exception {
+        // Create submission details
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode metadataRootNode = createNewMetadataJSON(mapper, projectTitle, projectDescription);
+        createNewSubmissionDetailEntry(submissionId, projectTitle, projectDescription, metadataRootNode);
+
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
 
@@ -1964,10 +1971,17 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetReleaseDate_malformedDate() throws Exception {
+        // Create submission details
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode metadataRootNode = createNewMetadataJSON(mapper, projectTitle, projectDescription);
+        createNewSubmissionDetailEntry(submissionId, projectTitle, projectDescription, metadataRootNode);
+
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/releaseDate/2027-01-01")
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/releaseDate/1-Jan-2026")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());

@@ -200,7 +200,7 @@ public class AdminController extends BaseController {
     @Parameters({
             @Parameter(name = "submissionId", description = "Id of the submission",
                     required = true, in = ParameterIn.PATH),
-            @Parameter(name = "releaseDate", description = "Desired release date (ISO-8601 format) of the submission ",
+            @Parameter(name = "releaseDate", description = "Desired release date (ISO-8601 format) of the submission",
                     required = true, in = ParameterIn.PATH)
     })
     @PutMapping("submission/{submissionId}/releaseDate/{releaseDate}")
