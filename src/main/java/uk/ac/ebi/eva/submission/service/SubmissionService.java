@@ -500,7 +500,7 @@ public class SubmissionService {
         ObjectReader reader = mapper.readerForListOf(String.class);
         List<String> analysisAccessions;
         try {
-          analysisAccessions = reader.readValue(requestBody.path("analysisAccession"));
+          analysisAccessions = reader.readValue(requestBody.path("analysisAccessions"));
         } catch (IOException e) {
             analysisAccessions = Collections.emptyList();
         }

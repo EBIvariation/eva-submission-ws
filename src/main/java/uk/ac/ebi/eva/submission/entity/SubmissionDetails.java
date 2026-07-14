@@ -5,6 +5,7 @@ import io.hypersistence.utils.hibernate.type.json.JsonType;
 import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.Column;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.OneToOne;
@@ -43,6 +44,7 @@ public class SubmissionDetails {
     @Column(name = "project_accession", nullable = true)
     private String projectAccession;
 
+    @ElementCollection
     @Column(name = "analysis_accessions", nullable = true)
     private List<String> analysisAccessions;
 

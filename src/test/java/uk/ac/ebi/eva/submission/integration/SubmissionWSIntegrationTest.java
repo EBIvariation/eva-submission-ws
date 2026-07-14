@@ -2024,7 +2024,8 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getProjectAccession()).isNotNull();
         assertThat(submissionDetails.getProjectAccession()).isEqualTo(projectAccession);
         assertThat(submissionDetails.getAnalysisAccessions()).isNotNull();
-        assertThat(submissionDetails.getAnalysisAccessions()).isEqualTo(Collections.singletonList(analysisAccession));
+        assertThat(submissionDetails.getAnalysisAccessions().size()).isEqualTo(1);
+        assertThat(submissionDetails.getAnalysisAccessions().get(0)).isEqualTo(analysisAccession);
     }
 
     @Test
