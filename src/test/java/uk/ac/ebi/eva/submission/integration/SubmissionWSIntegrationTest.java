@@ -1992,6 +1992,74 @@ public class SubmissionWSIntegrationTest {
     }
 
     @Test
+    @Transactional
+    public void testSetProjectAndAnalysisAccessions() throws Exception {
+        // Create submission details
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode metadataRootNode = createNewMetadataJSON(mapper, projectTitle, projectDescription);
+        createNewSubmissionDetailEntry(submissionId, projectTitle, projectDescription, metadataRootNode);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        // Request body
+        String projectAccession = "PRJEB123";
+        String analysisAccession = "ERZ456";
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("projectAccession", projectAccession);
+        ArrayNode arrayNode = mapper.createArrayNode();
+        arrayNode.add(analysisAccession);
+        rootNode.set("analysisAccessions", arrayNode);
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/accessions")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getProjectAccession()).isNotNull();
+        assertThat(submissionDetails.getProjectAccession()).isEqualTo(projectAccession);
+        assertThat(submissionDetails.getAnalysisAccessions()).isNotNull();
+        assertThat(submissionDetails.getAnalysisAccessions()).isEqualTo(Collections.singletonList(analysisAccession));
+    }
+
+    @Test
+    @Transactional
+    public void testSetProjectAndAnalysisAccessions_badRequest() throws Exception {
+        // Create submission details
+        String projectTitle = "test_project_title";
+        String projectDescription = "test_project_description";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode metadataRootNode = createNewMetadataJSON(mapper, projectTitle, projectDescription);
+        createNewSubmissionDetailEntry(submissionId, projectTitle, projectDescription, metadataRootNode);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        // Malformed request body
+        String projectAccession = "PRJEB123";
+        String analysisAccession = "ERZ456";
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("projectAccession", projectAccession);
+        rootNode.put("analysisAccession", analysisAccession);
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/accessions")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getProjectAccession()).isNull();
+        assertThat(submissionDetails.getAnalysisAccessions()).isNull();
+    }
+
+    @Test
     public void testAdminBruteForceProtection() throws Exception {
         HttpHeaders badHeaders = new HttpHeaders();
         badHeaders.setBasicAuth(TEST_ADMIN_USERNAME, "wrong-password");

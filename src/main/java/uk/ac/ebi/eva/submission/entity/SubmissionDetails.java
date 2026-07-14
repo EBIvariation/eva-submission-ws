@@ -11,6 +11,7 @@ import javax.persistence.OneToOne;
 import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(schema = "eva_submissions", name = "submission_details")
@@ -38,6 +39,12 @@ public class SubmissionDetails {
 
     @Column(name = "release_date", nullable = true)
     private LocalDate releaseDate;
+
+    @Column(name = "project_accession", nullable = true)
+    private String projectAccession;
+
+    @Column(name = "analysis_accessions", nullable = true)
+    private List<String> analysisAccessions;
 
     public SubmissionDetails() {
     }
@@ -88,5 +95,21 @@ public class SubmissionDetails {
 
     public void setReleaseDate(LocalDate releaseDate) {
         this.releaseDate = releaseDate;
+    }
+
+    public List<String> getAnalysisAccessions() {
+        return analysisAccessions;
+    }
+
+    public void setAnalysisAccessions(List<String> analysisAccessions) {
+        this.analysisAccessions = analysisAccessions;
+    }
+
+    public String getProjectAccession() {
+        return projectAccession;
+    }
+
+    public void setProjectAccession(String projectAccession) {
+        this.projectAccession = projectAccession;
     }
 }

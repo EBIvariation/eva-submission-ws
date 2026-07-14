@@ -3,6 +3,7 @@ package uk.ac.ebi.eva.submission.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
@@ -36,10 +37,12 @@ import uk.ac.ebi.eva.submission.util.EnaUtils;
 import uk.ac.ebi.eva.submission.util.MailSender;
 import uk.ac.ebi.eva.submission.util.Utils;
 
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -471,7 +474,8 @@ public class SubmissionService {
         ).map(p -> new SubmissionSummaryDto(
                 p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
                 p.getEloadSource(), p.getEloadId(),
-                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(), p.getReleaseDate()
+                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(), p.getReleaseDate(),
+                p.getProjectAccession(), p.getAnalysisAccessions()
         ));
     }
 
@@ -481,6 +485,41 @@ public class SubmissionService {
             throw new SubmissionDoesNotExistException(submissionId);
         }
         submissionDetails.setReleaseDate(releaseDate);
+
+        return submissionDetailsRepository.save(submissionDetails);
+    }
+
+    public SubmissionDetails setProjectAndAnalysisAccessions(String submissionId, JsonNode requestBody) {
+        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
+        if (submissionDetails == null) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
+
+        String projectAccession = requestBody.path("projectAccession").asText("");
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectReader reader = mapper.readerForListOf(String.class);
+        List<String> analysisAccessions;
+        try {
+          analysisAccessions = reader.readValue(requestBody.path("analysisAccession"));
+        } catch (IOException e) {
+            analysisAccessions = Collections.emptyList();
+        }
+        if (projectAccession.isEmpty() || analysisAccessions.isEmpty()) {
+            throw new RequiredFieldsMissingException("Missing values for some of the required fields. " +
+                    "projectAccession: " + projectAccession + ", analysisAccessions: " + analysisAccessions);
+        }
+
+        String previousProject = submissionDetails.getProjectAccession();
+        List<String> previousAnalysis = submissionDetails.getAnalysisAccessions();
+        if (previousProject != null && !previousProject.equals(projectAccession)) {
+            logger.warn("Overwriting previous project: {} -> {}", previousProject, projectAccession);
+        }
+        if (previousAnalysis != null && !previousAnalysis.isEmpty() && !previousAnalysis.equals(analysisAccessions)) {
+            logger.warn("Overwriting previous analysis: {} -> {}", previousAnalysis, analysisAccessions);
+        }
+
+        submissionDetails.setProjectAccession(projectAccession);
+        submissionDetails.setAnalysisAccessions(analysisAccessions);
 
         return submissionDetailsRepository.save(submissionDetails);
     }

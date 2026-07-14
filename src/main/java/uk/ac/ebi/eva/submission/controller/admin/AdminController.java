@@ -216,4 +216,27 @@ public class AdminController extends BaseController {
         }
     }
 
+    @Operation(summary = "Given a submission id, this endpoint updates the project and analysis accessions",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @PutMapping("submission/{submissionId}/accessions")
+    public ResponseEntity<?> setProjectAndAnalysisAccessions(
+            @PathVariable("submissionId") String submissionId,
+            @RequestBody JsonNode body
+    ) {
+        try {
+            SubmissionDetails submissionDetails = this.submissionService.setProjectAndAnalysisAccessions(submissionId,
+                    body);
+            return new ResponseEntity<>(submissionDetails, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (RequiredFieldsMissingException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
 }

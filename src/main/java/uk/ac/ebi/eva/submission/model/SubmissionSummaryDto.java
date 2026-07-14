@@ -2,6 +2,7 @@ package uk.ac.ebi.eva.submission.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class SubmissionSummaryDto {
 
@@ -14,11 +15,14 @@ public class SubmissionSummaryDto {
     private String processingStatus;
     private String projectTitle;
     private LocalDate releaseDate;
+    private String projectAccession;
+    private List<String> analysisAccessions;
 
     public SubmissionSummaryDto(String submissionId, LocalDateTime uploadedTime, String accountId,
                                 String eloadSource, Integer eloadId,
                                 String processingStep, String processingStatus,
-                                String projectTitle, LocalDate releaseDate) {
+                                String projectTitle, LocalDate releaseDate,
+                                String projectAccession, List<String> analysisAccessions) {
         this.submissionId = submissionId;
         this.uploadedTime = uploadedTime;
         this.accountId = accountId;
@@ -28,6 +32,8 @@ public class SubmissionSummaryDto {
         this.processingStatus = processingStatus;
         this.projectTitle = projectTitle;
         this.releaseDate = releaseDate;
+        this.projectAccession = projectAccession;
+        this.analysisAccessions = analysisAccessions;
     }
 
     public String getSubmissionId() {
@@ -64,5 +70,13 @@ public class SubmissionSummaryDto {
 
     public LocalDate getReleaseDate() {
         return releaseDate;
+    }
+
+    public String getProjectAccession() {
+        return projectAccession;
+    }
+
+    public List<String> getAnalysisAccessions() {
+        return analysisAccessions;
     }
 }
