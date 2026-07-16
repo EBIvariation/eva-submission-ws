@@ -17,6 +17,7 @@ import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
+import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
@@ -31,6 +32,8 @@ import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
+import uk.ac.ebi.eva.submission.model.SubmissionTrackingDetailsDto;
 import uk.ac.ebi.eva.submission.util.BioSamplesUtils;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.EnaUtils;
@@ -85,6 +88,8 @@ public class SubmissionService {
 
     private final SubmissionEloadRepository submissionEloadRepository;
 
+    private final SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
+
     private final GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
     private final MailSender mailSender;
@@ -106,6 +111,7 @@ public class SubmissionService {
                              SubmissionDetailsRepository submissionDetailsRepository,
                              SubmissionProcessingRepository submissionProcessingRepository,
                              SubmissionEloadRepository submissionEloadRepository,
+                             SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository,
                              GlobusDirectoryProvisioner globusDirectoryProvisioner,
                              MailSender mailSender, EmailNotificationHelper emailHelper,
                              EnaUtils enaUtils, BioSamplesUtils bioSamplesUtils) {
@@ -114,6 +120,7 @@ public class SubmissionService {
         this.submissionDetailsRepository = submissionDetailsRepository;
         this.submissionProcessingRepository = submissionProcessingRepository;
         this.submissionEloadRepository = submissionEloadRepository;
+        this.submissionTrackingDetailsRepository = submissionTrackingDetailsRepository;
         this.globusDirectoryProvisioner = globusDirectoryProvisioner;
         this.mailSender = mailSender;
         this.emailHelper = emailHelper;
@@ -479,49 +486,24 @@ public class SubmissionService {
         ));
     }
 
-    public SubmissionDetails setReleaseDate(String submissionId, LocalDate releaseDate) {
-        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
-        if (submissionDetails == null) {
-            throw new SubmissionDoesNotExistException(submissionId);
-        }
-        submissionDetails.setReleaseDate(releaseDate);
-
-        return submissionDetailsRepository.save(submissionDetails);
-    }
-
-    public SubmissionDetails setProjectAndAnalysisAccessions(String submissionId, JsonNode requestBody) {
-        SubmissionDetails submissionDetails = submissionDetailsRepository.findBySubmissionId(submissionId);
-        if (submissionDetails == null) {
-            throw new SubmissionDoesNotExistException(submissionId);
+    public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
+        SubmissionTrackingDetails submissionTrackingDetails =
+                submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        if (submissionTrackingDetails == null) {
+            submissionTrackingDetails = new SubmissionTrackingDetails(submissionId);
         }
 
-        String projectAccession = requestBody.path("projectAccession").asText("");
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectReader reader = mapper.readerForListOf(String.class);
-        List<String> analysisAccessions;
-        try {
-          analysisAccessions = reader.readValue(requestBody.path("analysisAccessions"));
-        } catch (IOException e) {
-            analysisAccessions = Collections.emptyList();
+        if (trackingDetails.getReleaseDate() != null) {
+            submissionTrackingDetails.setReleaseDate(trackingDetails.getReleaseDate());
         }
-        if (projectAccession.isEmpty() || analysisAccessions.isEmpty()) {
-            throw new RequiredFieldsMissingException("Missing values for some of the required fields. " +
-                    "projectAccession: " + projectAccession + ", analysisAccessions: " + analysisAccessions);
+        if (trackingDetails.getProjectAccession() != null) {
+            submissionTrackingDetails.setProjectAccession(trackingDetails.getProjectAccession());
+        }
+        if (trackingDetails.getAnalysisAccessions() != null) {
+            submissionTrackingDetails.setAnalysisAccessions(trackingDetails.getAnalysisAccessions());
         }
 
-        String previousProject = submissionDetails.getProjectAccession();
-        List<String> previousAnalysis = submissionDetails.getAnalysisAccessions();
-        if (previousProject != null && !previousProject.equals(projectAccession)) {
-            logger.warn("Overwriting previous project: {} -> {}", previousProject, projectAccession);
-        }
-        if (previousAnalysis != null && !previousAnalysis.isEmpty() && !previousAnalysis.equals(analysisAccessions)) {
-            logger.warn("Overwriting previous analysis: {} -> {}", previousAnalysis, analysisAccessions);
-        }
-
-        submissionDetails.setProjectAccession(projectAccession);
-        submissionDetails.setAnalysisAccessions(analysisAccessions);
-
-        return submissionDetailsRepository.save(submissionDetails);
+        return submissionTrackingDetailsRepository.save(submissionTrackingDetails);
     }
 
 }

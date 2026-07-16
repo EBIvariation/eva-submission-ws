@@ -13,6 +13,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
+import javax.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -30,11 +31,11 @@ import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionSummaryDto;
+import uk.ac.ebi.eva.submission.model.SubmissionTrackingDetailsDto;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -194,48 +195,23 @@ public class AdminController extends BaseController {
         }
     }
 
-    @Operation(summary = "Given a submission id, this endpoint updates the release date to the one provided",
+    @Operation(summary = "Given a submission id, this endpoint updates the tracking details (release date, etc.)",
             security = {@SecurityRequirement(name = "basicAuth")
             })
     @Parameters({
-            @Parameter(name = "submissionId", description = "Id of the submission",
-                    required = true, in = ParameterIn.PATH),
-            @Parameter(name = "releaseDate", description = "Desired release date (ISO-8601 format) of the submission",
+            @Parameter(name = "submissionId", description = "Id of the submission to update",
                     required = true, in = ParameterIn.PATH)
     })
-    @PutMapping("submission/{submissionId}/releaseDate/{releaseDate}")
-    public ResponseEntity<?> setReleaseDate(
+    @PutMapping("submission/{submissionId}/trackingDetails")
+    public ResponseEntity<?> setTrackingDetails(
             @PathVariable("submissionId") String submissionId,
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate releaseDate
-    ) {
+            @Valid @RequestBody SubmissionTrackingDetailsDto trackingDetails
+            ) {
         try {
-            SubmissionDetails submissionDetails = this.submissionService.setReleaseDate(submissionId, releaseDate);
-            return new ResponseEntity<>(submissionDetails, HttpStatus.OK);
+            return new ResponseEntity<>(this.submissionService.updateTrackingDetails(submissionId, trackingDetails),
+                    HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
-        }
-    }
-
-    @Operation(summary = "Given a submission id, this endpoint updates the project and analysis accessions",
-            security = {@SecurityRequirement(name = "basicAuth")
-            })
-    @Parameters({
-            @Parameter(name = "submissionId", description = "Id of the submission",
-                    required = true, in = ParameterIn.PATH)
-    })
-    @PutMapping("submission/{submissionId}/accessions")
-    public ResponseEntity<?> setProjectAndAnalysisAccessions(
-            @PathVariable("submissionId") String submissionId,
-            @RequestBody JsonNode body
-    ) {
-        try {
-            SubmissionDetails submissionDetails = this.submissionService.setProjectAndAnalysisAccessions(submissionId,
-                    body);
-            return new ResponseEntity<>(submissionDetails, HttpStatus.OK);
-        } catch (SubmissionDoesNotExistException ex) {
-            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
-        } catch (RequiredFieldsMissingException ex) {
-            return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
