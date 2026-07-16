@@ -482,6 +482,11 @@ public class SubmissionService {
     }
 
     public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
+        Optional<Submission> submission = submissionRepository.findById(submissionId);
+        if (!submission.isPresent()) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
+
         SubmissionTrackingDetails submissionTrackingDetails =
                 submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
         if (submissionTrackingDetails == null) {
