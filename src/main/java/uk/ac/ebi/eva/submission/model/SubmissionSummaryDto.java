@@ -1,6 +1,5 @@
 package uk.ac.ebi.eva.submission.model;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class SubmissionSummaryDto {

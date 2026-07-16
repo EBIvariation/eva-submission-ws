@@ -13,7 +13,6 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
-import javax.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -205,7 +204,7 @@ public class AdminController extends BaseController {
     @PutMapping("submission/{submissionId}/trackingDetails")
     public ResponseEntity<?> setTrackingDetails(
             @PathVariable("submissionId") String submissionId,
-            @Valid @RequestBody SubmissionTrackingDetailsDto trackingDetails
+            @RequestBody SubmissionTrackingDetailsDto trackingDetails
             ) {
         try {
             return new ResponseEntity<>(this.submissionService.updateTrackingDetails(submissionId, trackingDetails),
