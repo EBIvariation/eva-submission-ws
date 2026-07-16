@@ -481,8 +481,7 @@ public class SubmissionService {
         ).map(p -> new SubmissionSummaryDto(
                 p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
                 p.getEloadSource(), p.getEloadId(),
-                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(), p.getReleaseDate(),
-                p.getProjectAccession(), p.getAnalysisAccessions()
+                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle()
         ));
     }
 

@@ -77,5 +77,4 @@ public class SubmissionDetails {
     public void setMetadataJson(JsonNode metadataJson) {
         this.metadataJson = metadataJson;
     }
-
 }

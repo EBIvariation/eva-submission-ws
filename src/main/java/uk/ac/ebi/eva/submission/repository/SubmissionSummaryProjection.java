@@ -12,7 +12,4 @@ public interface SubmissionSummaryProjection {
     String getProcessingStep();
     String getProcessingStatus();
     String getProjectTitle();
-    LocalDate getReleaseDate();
-    String getProjectAccession();
-    String getAnalysisAccessions();
 }
