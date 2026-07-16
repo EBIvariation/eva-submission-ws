@@ -207,7 +207,7 @@ public class AdminController extends BaseController {
             @RequestBody SubmissionTrackingDetailsDto trackingDetails
             ) {
         try {
-            return new ResponseEntity<>(this.submissionService.updateTrackingDetails(submissionId, trackingDetails),
+            return new ResponseEntity<>(submissionService.updateTrackingDetails(submissionId, trackingDetails),
                     HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
