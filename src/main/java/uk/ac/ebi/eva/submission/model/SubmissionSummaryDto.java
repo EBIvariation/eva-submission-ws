@@ -8,6 +8,7 @@ import java.util.List;
 public class SubmissionSummaryDto {
 
     private String submissionId;
+    private String submissionStatus;
     private LocalDateTime uploadedTime;
     private String accountId;
     private String eloadSource;
@@ -20,12 +21,13 @@ public class SubmissionSummaryDto {
     private List<String> analysisAccessions;
     private URI rtLink;
 
-    public SubmissionSummaryDto(String submissionId, LocalDateTime uploadedTime, String accountId,
+    public SubmissionSummaryDto(String submissionId, String submissionStatus, LocalDateTime uploadedTime, String accountId,
                                 String eloadSource, Integer eloadId,
                                 String processingStep, String processingStatus,
                                 String projectTitle, LocalDate releaseDate,
                                 String projectAccession, List<String> analysisAccessions, URI rtLink) {
         this.submissionId = submissionId;
+        this.submissionStatus = submissionStatus;
         this.uploadedTime = uploadedTime;
         this.accountId = accountId;
         this.eloadSource = eloadSource;
@@ -41,6 +43,10 @@ public class SubmissionSummaryDto {
 
     public String getSubmissionId() {
         return submissionId;
+    }
+
+    public String getSubmissionStatus() {
+        return submissionStatus;
     }
 
     public LocalDateTime getUploadedTime() {
