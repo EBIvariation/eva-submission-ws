@@ -18,12 +18,20 @@ public interface SubmissionRepository extends CrudRepository<Submission, String>
     @Query(value =
             "SELECT s.submission_id AS submissionId, s.uploaded_time AS uploadedTime, sa.id AS accountId, " +
             "se.source AS eloadSource, se.eload AS eloadId, " +
-            "sp.step AS processingStep, sp.status AS processingStatus, sd.project_title AS projectTitle " +
+            "sp.step AS processingStep, sp.status AS processingStatus, sd.project_title AS projectTitle, " +
+            "st.project_accession AS projectAccession, sta.analysis_accessions AS analysisAccessions, " +
+            "st.release_date AS releaseDate " +
             "FROM eva_submissions.submission s " +
             "JOIN eva_submissions.submission_account sa ON sa.id = s.submission_account_id " +
             "LEFT JOIN eva_submissions.submission_eload se ON se.submission_id = s.submission_id " +
             "LEFT JOIN eva_submissions.submission_processing_status sp ON sp.submission_id = s.submission_id " +
             "LEFT JOIN eva_submissions.submission_details sd ON sd.submission_id = s.submission_id " +
+            "LEFT JOIN eva_submissions.submission_tracking_details st ON st.submission_id = s.submission_id " +
+            "LEFT JOIN (" +
+            "    SELECT submission_id, string_agg(analysis_accessions, ',') AS analysis_accessions" +
+            "    FROM eva_submissions.submission_tracking_details_analysis_accessions" +
+            "    GROUP BY submission_id" +
+            ") sta ON sta.submission_id = s.submission_id " +
             "WHERE (CAST(:submissionAccount AS text) IS NULL OR sa.id = :submissionAccount) " +
             "AND (CAST(:uploadedAfter AS timestamp) IS NULL OR s.uploaded_time >= CAST(:uploadedAfter AS timestamp)) " +
             "AND (CAST(:source AS text) IS NULL OR se.source = :source) " +

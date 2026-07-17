@@ -30,6 +30,7 @@ import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionSummaryDto;
+import uk.ac.ebi.eva.submission.model.SubmissionTrackingDetailsDto;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
@@ -190,6 +191,26 @@ public class AdminController extends BaseController {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (DataIntegrityViolationException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.CONFLICT);
+        }
+    }
+
+    @Operation(summary = "Given a submission id, this endpoint updates the tracking details (release date, etc.)",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission to update",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @PutMapping("submission/{submissionId}/trackingDetails")
+    public ResponseEntity<?> setTrackingDetails(
+            @PathVariable("submissionId") String submissionId,
+            @RequestBody SubmissionTrackingDetailsDto trackingDetails
+            ) {
+        try {
+            return new ResponseEntity<>(submissionService.updateTrackingDetails(submissionId, trackingDetails),
+                    HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
     }
 

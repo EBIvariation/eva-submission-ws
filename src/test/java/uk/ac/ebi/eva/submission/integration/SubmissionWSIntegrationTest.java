@@ -23,6 +23,7 @@ import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -36,6 +37,7 @@ import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
+import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
@@ -44,6 +46,7 @@ import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.service.LoginMethod;
@@ -57,6 +60,7 @@ import javax.persistence.EntityManagerFactory;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -121,6 +125,9 @@ public class SubmissionWSIntegrationTest {
 
     @Autowired
     private SubmissionDetailsRepository submissionDetailsRepository;
+
+    @Autowired
+    private SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
 
     @Autowired
     private SubmissionProcessingRepository submissionProcessingRepository;
@@ -634,7 +641,6 @@ public class SubmissionWSIntegrationTest {
         assertEmailsSentToUserAndHelpDesk(true, false);
 
     }
-
 
     @Test
     @Transactional
@@ -1941,6 +1947,93 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[*].submissionId").value(hasItem(webinSubmissionId)))
                 .andExpect(jsonPath("$.content[*].submissionId").value(not(hasItem(otherSubmissionId))));
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails() throws Exception {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        // Request body
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("releaseDate", "2027-01-01");
+        rootNode.put("projectAccession", "PRJEB123");
+        ArrayNode arrayNode = mapper.createArrayNode();
+        arrayNode.add("ERZ456");
+        rootNode.set("analysisAccessions", arrayNode);
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNotNull();
+        assertThat(submissionDetails.getReleaseDate()).isNotNull();
+        assertThat(submissionDetails.getReleaseDate()).isEqualTo(LocalDate.of(2027, 1, 1));
+        assertThat(submissionDetails.getProjectAccession()).isNotNull();
+        assertThat(submissionDetails.getProjectAccession()).isEqualTo("PRJEB123");
+        assertThat(submissionDetails.getAnalysisAccessions()).isNotNull();
+        assertThat(submissionDetails.getAnalysisAccessions().size()).isEqualTo(1);
+        assertThat(submissionDetails.getAnalysisAccessions().get(0)).isEqualTo("ERZ456");
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_malformedDate() throws Exception {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        // Request body
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("releaseDate", "1-Jan-2026");
+        rootNode.put("projectAccession", "PRJEB123");
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNull();
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_partialUpdate() throws Exception {
+        // Create submission tracking details with only project accession and release date
+        SubmissionTrackingDetails submissionDetails = new SubmissionTrackingDetails(submissionId);
+        submissionDetails.setProjectAccession("PRJEB123");
+        submissionDetails.setReleaseDate(LocalDate.of(2027, 1, 1));
+        submissionTrackingDetailsRepository.save(submissionDetails);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        // Request body only updates release date
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("releaseDate", "2027-12-12");
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        // Assert results: release date updated, project accession unchanged and analysis accessions still unset
+        SubmissionTrackingDetails updatedSubmissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(updatedSubmissionDetails).isNotNull();
+        assertThat(updatedSubmissionDetails.getReleaseDate()).isNotNull();
+        assertThat(updatedSubmissionDetails.getReleaseDate()).isEqualTo(LocalDate.of(2027, 12, 12));
+        assertThat(updatedSubmissionDetails.getProjectAccession()).isNotNull();
+        assertThat(updatedSubmissionDetails.getProjectAccession()).isEqualTo("PRJEB123");
+        assertThat(updatedSubmissionDetails.getAnalysisAccessions()).isNull();
     }
 
     @Test

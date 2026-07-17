@@ -16,6 +16,7 @@ import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
+import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
@@ -30,6 +31,8 @@ import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
+import uk.ac.ebi.eva.submission.model.SubmissionTrackingDetailsDto;
 import uk.ac.ebi.eva.submission.util.BioSamplesUtils;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.EnaUtils;
@@ -39,6 +42,7 @@ import uk.ac.ebi.eva.submission.util.Utils;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -47,6 +51,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import java.util.Arrays;
 
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_ACCESSION;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_OBJECT;
@@ -81,6 +86,8 @@ public class SubmissionService {
 
     private final SubmissionEloadRepository submissionEloadRepository;
 
+    private final SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
+
     private final GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
     private final MailSender mailSender;
@@ -102,6 +109,7 @@ public class SubmissionService {
                              SubmissionDetailsRepository submissionDetailsRepository,
                              SubmissionProcessingRepository submissionProcessingRepository,
                              SubmissionEloadRepository submissionEloadRepository,
+                             SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository,
                              GlobusDirectoryProvisioner globusDirectoryProvisioner,
                              MailSender mailSender, EmailNotificationHelper emailHelper,
                              EnaUtils enaUtils, BioSamplesUtils bioSamplesUtils) {
@@ -110,6 +118,7 @@ public class SubmissionService {
         this.submissionDetailsRepository = submissionDetailsRepository;
         this.submissionProcessingRepository = submissionProcessingRepository;
         this.submissionEloadRepository = submissionEloadRepository;
+        this.submissionTrackingDetailsRepository = submissionTrackingDetailsRepository;
         this.globusDirectoryProvisioner = globusDirectoryProvisioner;
         this.mailSender = mailSender;
         this.emailHelper = emailHelper;
@@ -470,8 +479,43 @@ public class SubmissionService {
         ).map(p -> new SubmissionSummaryDto(
                 p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
                 p.getEloadSource(), p.getEloadId(),
-                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle()
+                p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(),
+                p.getReleaseDate(), p.getProjectAccession(), parseAnalysisAccessions(p.getAnalysisAccessions())
         ));
+    }
+
+    private List<String> parseAnalysisAccessions(String analysisAccessions) {
+        if (analysisAccessions == null || analysisAccessions.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(analysisAccessions.split(","))
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
+        Optional<Submission> submission = submissionRepository.findById(submissionId);
+        if (!submission.isPresent()) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
+
+        SubmissionTrackingDetails submissionTrackingDetails =
+                submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        if (submissionTrackingDetails == null) {
+            submissionTrackingDetails = new SubmissionTrackingDetails(submissionId);
+        }
+
+        if (trackingDetails.getReleaseDate() != null) {
+            submissionTrackingDetails.setReleaseDate(trackingDetails.getReleaseDate());
+        }
+        if (trackingDetails.getProjectAccession() != null) {
+            submissionTrackingDetails.setProjectAccession(trackingDetails.getProjectAccession());
+        }
+        if (trackingDetails.getAnalysisAccessions() != null) {
+            submissionTrackingDetails.setAnalysisAccessions(trackingDetails.getAnalysisAccessions());
+        }
+
+        return submissionTrackingDetailsRepository.save(submissionTrackingDetails);
     }
 
 }
