@@ -42,6 +42,7 @@ import uk.ac.ebi.eva.submission.util.Utils;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +51,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import java.util.Arrays;
 
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_ACCESSION;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_OBJECT;
@@ -478,8 +480,17 @@ public class SubmissionService {
                 p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
                 p.getEloadSource(), p.getEloadId(),
                 p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(),
-                p.getReleaseDate(), p.getProjectAccession(), p.getAnalysisAccessions()
+                p.getReleaseDate(), p.getProjectAccession(), parseAnalysisAccessions(p.getAnalysisAccessions())
         ));
+    }
+
+    private List<String> parseAnalysisAccessions(String analysisAccessions) {
+        if (analysisAccessions == null || analysisAccessions.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(analysisAccessions.split(","))
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
     }
 
     public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
