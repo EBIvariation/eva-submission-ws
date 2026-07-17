@@ -2008,6 +2008,28 @@ public class SubmissionWSIntegrationTest {
 
     @Test
     @Transactional
+    public void testSetTrackingDetails_malformedUri() throws Exception {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        // Request body
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("rtLink", "bad link");
+        rootNode.put("projectAccession", "PRJEB123");
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNull();
+    }
+
+    @Test
+    @Transactional
     public void testSetTrackingDetails_partialUpdate() throws Exception {
         // Create submission tracking details with only project accession and release date
         SubmissionTrackingDetails submissionDetails = new SubmissionTrackingDetails(submissionId);
