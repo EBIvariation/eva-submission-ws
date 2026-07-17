@@ -20,7 +20,7 @@ public interface SubmissionRepository extends CrudRepository<Submission, String>
             "se.source AS eloadSource, se.eload AS eloadId, " +
             "sp.step AS processingStep, sp.status AS processingStatus, sd.project_title AS projectTitle, " +
             "st.project_accession AS projectAccession, sta.analysis_accessions AS analysisAccessions, " +
-            "st.release_date AS releaseDate " +
+            "st.release_date AS releaseDate, st.rt_link AS rtLink " +
             "FROM eva_submissions.submission s " +
             "JOIN eva_submissions.submission_account sa ON sa.id = s.submission_account_id " +
             "LEFT JOIN eva_submissions.submission_eload se ON se.submission_id = s.submission_id " +

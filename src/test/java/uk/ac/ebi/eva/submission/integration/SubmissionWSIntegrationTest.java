@@ -1963,6 +1963,7 @@ public class SubmissionWSIntegrationTest {
         ArrayNode arrayNode = mapper.createArrayNode();
         arrayNode.add("ERZ456");
         rootNode.set("analysisAccessions", arrayNode);
+        rootNode.put("rtLink", "https://rt.com/1234");
 
         mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
                         .headers(httpHeaders)
@@ -1979,6 +1980,8 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getAnalysisAccessions()).isNotNull();
         assertThat(submissionDetails.getAnalysisAccessions().size()).isEqualTo(1);
         assertThat(submissionDetails.getAnalysisAccessions().get(0)).isEqualTo("ERZ456");
+        assertThat(submissionDetails.getRtLink()).isNotNull();
+        assertThat(submissionDetails.getRtLink()).isEqualTo("https://rt.com/1234");
     }
 
     @Test
