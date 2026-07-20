@@ -35,6 +35,9 @@ public class SubmissionTrackingDetails {
     @Column(name = "analysis_accessions", nullable = true)
     private List<String> analysisAccessions;
 
+    @Column(name = "rt_link", nullable = true)
+    private String rtLink;
+
     public SubmissionTrackingDetails() {
     }
 
@@ -76,5 +79,13 @@ public class SubmissionTrackingDetails {
 
     public void setProjectAccession(String projectAccession) {
         this.projectAccession = projectAccession;
+    }
+
+    public String getRtLink() {
+        return rtLink;
+    }
+
+    public void setRtLink(String rtLink) {
+        this.rtLink = rtLink;
     }
 }

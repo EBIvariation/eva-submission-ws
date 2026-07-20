@@ -2,6 +2,7 @@ package uk.ac.ebi.eva.submission.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -13,6 +14,8 @@ public class SubmissionTrackingDetailsDto {
     private String projectAccession;
 
     private List<String> analysisAccessions;
+
+    private URI rtLink;
 
     public LocalDate getReleaseDate() {
         return releaseDate;
@@ -36,5 +39,13 @@ public class SubmissionTrackingDetailsDto {
 
     public void setAnalysisAccessions(List<String> analysisAccessions) {
         this.analysisAccessions = analysisAccessions;
+    }
+
+    public URI getRtLink() {
+        return rtLink;
+    }
+
+    public void setRtLink(URI rtLink) {
+        this.rtLink = rtLink;
     }
 }

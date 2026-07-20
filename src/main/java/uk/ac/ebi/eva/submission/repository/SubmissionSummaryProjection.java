@@ -15,4 +15,5 @@ public interface SubmissionSummaryProjection {
     LocalDate getReleaseDate();
     String getProjectAccession();
     String getAnalysisAccessions();
+    String getRtLink();
 }

@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.model;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,12 +18,13 @@ public class SubmissionSummaryDto {
     private LocalDate releaseDate;
     private String projectAccession;
     private List<String> analysisAccessions;
+    private URI rtLink;
 
     public SubmissionSummaryDto(String submissionId, LocalDateTime uploadedTime, String accountId,
                                 String eloadSource, Integer eloadId,
                                 String processingStep, String processingStatus,
                                 String projectTitle, LocalDate releaseDate,
-                                String projectAccession, List<String> analysisAccessions) {
+                                String projectAccession, List<String> analysisAccessions, URI rtLink) {
         this.submissionId = submissionId;
         this.uploadedTime = uploadedTime;
         this.accountId = accountId;
@@ -34,6 +36,7 @@ public class SubmissionSummaryDto {
         this.releaseDate = releaseDate;
         this.projectAccession = projectAccession;
         this.analysisAccessions = analysisAccessions;
+        this.rtLink = rtLink;
     }
 
     public String getSubmissionId() {
@@ -78,5 +81,9 @@ public class SubmissionSummaryDto {
 
     public List<String> getAnalysisAccessions() {
         return analysisAccessions;
+    }
+
+    public URI getRtLink() {
+        return rtLink;
     }
 }

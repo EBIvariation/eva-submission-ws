@@ -40,6 +40,7 @@ import uk.ac.ebi.eva.submission.util.MailSender;
 import uk.ac.ebi.eva.submission.util.Utils;
 
 import java.nio.file.Paths;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -480,7 +481,8 @@ public class SubmissionService {
                 p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
                 p.getEloadSource(), p.getEloadId(),
                 p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(),
-                p.getReleaseDate(), p.getProjectAccession(), parseAnalysisAccessions(p.getAnalysisAccessions())
+                p.getReleaseDate(), p.getProjectAccession(), parseAnalysisAccessions(p.getAnalysisAccessions()),
+                parseUri(p.getRtLink())
         ));
     }
 
@@ -491,6 +493,13 @@ public class SubmissionService {
         return Arrays.stream(analysisAccessions.split(","))
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
+    }
+
+    private URI parseUri(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        return URI.create(value);
     }
 
     public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
@@ -513,6 +522,9 @@ public class SubmissionService {
         }
         if (trackingDetails.getAnalysisAccessions() != null) {
             submissionTrackingDetails.setAnalysisAccessions(trackingDetails.getAnalysisAccessions());
+        }
+        if (trackingDetails.getRtLink() != null) {
+            submissionTrackingDetails.setRtLink(trackingDetails.getRtLink().toString());
         }
 
         return submissionTrackingDetailsRepository.save(submissionTrackingDetails);

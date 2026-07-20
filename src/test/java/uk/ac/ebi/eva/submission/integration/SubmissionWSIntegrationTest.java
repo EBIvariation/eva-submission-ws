@@ -1963,6 +1963,7 @@ public class SubmissionWSIntegrationTest {
         ArrayNode arrayNode = mapper.createArrayNode();
         arrayNode.add("ERZ456");
         rootNode.set("analysisAccessions", arrayNode);
+        rootNode.put("rtLink", "https://rt.com/1234");
 
         mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
                         .headers(httpHeaders)
@@ -1979,6 +1980,8 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getAnalysisAccessions()).isNotNull();
         assertThat(submissionDetails.getAnalysisAccessions().size()).isEqualTo(1);
         assertThat(submissionDetails.getAnalysisAccessions().get(0)).isEqualTo("ERZ456");
+        assertThat(submissionDetails.getRtLink()).isNotNull();
+        assertThat(submissionDetails.getRtLink()).isEqualTo("https://rt.com/1234");
     }
 
     @Test
@@ -1991,6 +1994,28 @@ public class SubmissionWSIntegrationTest {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("releaseDate", "1-Jan-2026");
+        rootNode.put("projectAccession", "PRJEB123");
+
+        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(httpHeaders)
+                        .content(mapper.writeValueAsString(rootNode))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        assertThat(submissionDetails).isNull();
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_malformedUri() throws Exception {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+
+        // Request body
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("rtLink", "bad link");
         rootNode.put("projectAccession", "PRJEB123");
 
         mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
