@@ -168,14 +168,14 @@ public class AdminController extends BaseController {
     @GetMapping("submissions")
     public ResponseEntity<?> getSubmissions(
             @RequestParam(required = false) String submissionAccount,
-            @RequestParam(required = false) List<SubmissionStatus> submissionStatusList,
+            @RequestParam(value = "submissionStatus", required = false) List<SubmissionStatus> submissionStatusList,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate uploadedAfter,
             @RequestParam(required = false) String source,
-            @RequestParam(required = false) List<SubmissionProcessingStep> processingStepList,
-            @RequestParam(required = false) List<SubmissionProcessingStatus> processingStatusList,
+            @RequestParam(value = "processingStep", required = false) List<SubmissionProcessingStep> processingStepList,
+            @RequestParam(value = "processingStatus", required = false) List<SubmissionProcessingStatus> processingStatusList,
             @RequestParam(required = false) String submissionId,
             @RequestParam(required = false) Integer eloadId,
-            @PageableDefault(size = 20, sort = "submissionId") Pageable pageable) {
+            @PageableDefault(size = 1000, sort = "submissionId") Pageable pageable) {
         Page<SubmissionSummaryDto> result = submissionService.getSubmissionsSummary(
                 submissionAccount, submissionStatusList, uploadedAfter, source, processingStepList, processingStatusList,
                 submissionId, eloadId, pageable);
