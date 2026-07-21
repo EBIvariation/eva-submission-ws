@@ -70,7 +70,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1736,16 +1735,6 @@ public class SubmissionWSIntegrationTest {
                 webinUserPrimaryEmail, webinUserSecondaryEmails);
     }
 
-    private SubmissionAccount getWebinUserAccountWithNullUserName() {
-        String accountId = "webinAccountId";
-        String loginType = LoginMethod.WEBIN.getLoginType();
-        String firstName = null;
-        String lastName = null;
-        String primaryEmail = webinUserPrimaryEmail;
-        return new SubmissionAccount(accountId, loginType, firstName, lastName,
-                webinUserPrimaryEmail, webinUserSecondaryEmails);
-    }
-
     private String createNewSubmissionEntry(SubmissionAccount submissionAccount, SubmissionStatus status) {
         submissionAccountRepository.save(submissionAccount);
 
@@ -1816,16 +1805,6 @@ public class SubmissionWSIntegrationTest {
         globusRootNode.put("DATA", dataNodeArray);
         return metadataRootNode;
 
-    }
-
-    private String createNewSubmissionEntryForAccount(SubmissionAccount submissionAccount, SubmissionStatus status) {
-        String submissionId = UUID.randomUUID().toString();
-        Submission submission = new Submission(submissionId);
-        submission.setSubmissionAccount(submissionAccount);
-        submission.setStatus(status.toString());
-        submission.setInitiationTime(LocalDateTime.now());
-        submissionRepository.save(submission);
-        return submissionId;
     }
 
     private void assertEmailsSentToUserAndHelpDesk(boolean shouldContainConsentStatement, boolean deprecatedVersion) throws JsonProcessingException {
@@ -1936,7 +1915,7 @@ public class SubmissionWSIntegrationTest {
 
         SubmissionAccount otherAccount = new SubmissionAccount("otherAccountId", "webin", "Other", "User", "other@test.com");
         submissionAccountRepository.save(otherAccount);
-        String otherSubmissionId = createNewSubmissionEntryForAccount(otherAccount, SubmissionStatus.OPEN);
+        String otherSubmissionId = createNewSubmissionEntry(otherAccount, SubmissionStatus.OPEN);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);

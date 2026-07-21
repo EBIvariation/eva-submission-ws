@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uk.ac.ebi.eva.submission.entity.Submission;
@@ -20,19 +22,17 @@ import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionSummaryDto;
+import uk.ac.ebi.eva.submission.model.SubmissionTrackingDetailsDto;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
-import uk.ac.ebi.eva.submission.model.SubmissionTrackingDetailsDto;
 import uk.ac.ebi.eva.submission.util.BioSamplesUtils;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.EnaUtils;
@@ -40,9 +40,11 @@ import uk.ac.ebi.eva.submission.util.MailSender;
 import uk.ac.ebi.eva.submission.util.Utils;
 
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -52,7 +54,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import java.util.Arrays;
 
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_ACCESSION;
 import static uk.ac.ebi.eva.submission.controller.submissionws.SubmissionController.BIO_SAMPLE_OBJECT;
@@ -466,24 +467,37 @@ public class SubmissionService {
         return submissionDetailsRepository.findBySubmissionId(submissionId);
     }
 
-    public Page<SubmissionSummaryDto> getSubmissionsSummary(String submissionAccount, LocalDateTime uploadedAfter,
-                                                            String source, SubmissionProcessingStep processingStep,
-                                                            SubmissionProcessingStatus processingStatus,
-                                                            String submissionId, Integer eloadId,
-                                                            Pageable pageable) {
+    public Page<SubmissionSummaryDto> getSubmissionsSummary(String submissionAccount, List<SubmissionStatus> submissionStatusList,
+                                                            LocalDate uploadedAfter, String source,
+                                                            List<SubmissionProcessingStep> processingStepList,
+                                                            List<SubmissionProcessingStatus> processingStatusList,
+                                                            String submissionId, Integer eloadId, Pageable pageable) {
+        List<String> statusNames = toNames(submissionStatusList);
+        List<String> stepNames = toNames(processingStepList);
+        List<String> processingStatusNames = toNames(processingStatusList);
+
         return submissionRepository.findSubmissionSummaries(
-                submissionAccount, uploadedAfter, source,
-                processingStep != null ? processingStep.toString() : null,
-                processingStatus != null ? processingStatus.toString() : null,
+                submissionAccount,
+                !statusNames.isEmpty(), statusNames,
+                uploadedAfter, source,
+                !stepNames.isEmpty(), stepNames,
+                !processingStatusNames.isEmpty(), processingStatusNames,
                 submissionId, eloadId,
                 pageable
         ).map(p -> new SubmissionSummaryDto(
-                p.getSubmissionId(), p.getUploadedTime(), p.getAccountId(),
+                p.getSubmissionId(), p.getSubmissionStatus(), p.getUploadedTime(), p.getAccountId(),
                 p.getEloadSource(), p.getEloadId(),
                 p.getProcessingStep(), p.getProcessingStatus(), p.getProjectTitle(),
                 p.getReleaseDate(), p.getProjectAccession(), parseAnalysisAccessions(p.getAnalysisAccessions()),
                 parseUri(p.getRtLink())
         ));
+    }
+
+    private static List<String> toNames(List<? extends Enum<?>> enumList) {
+        if (enumList == null || enumList.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return enumList.stream().map(Enum::name).collect(Collectors.toList());
     }
 
     private List<String> parseAnalysisAccessions(String analysisAccessions) {
