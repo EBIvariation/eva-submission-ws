@@ -40,9 +40,9 @@ import uk.ac.ebi.eva.submission.util.EnaUtils;
 import uk.ac.ebi.eva.submission.util.MailSender;
 import uk.ac.ebi.eva.submission.util.Utils;
 
+import java.net.URI;
 import java.nio.file.Paths;
 import java.time.LocalDate;
-import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -177,6 +177,28 @@ public class SubmissionService {
         submission.setUploadUrl(uploadHttpDomain + "/" + directoryToCreate);
 
         return submissionRepository.save(submission);
+    }
+
+    public String initiateSubmissionByEVA(String identifier) {
+        SubmissionEload submissionEload = submissionEloadRepository.findByEload(Integer.parseInt(identifier));
+        if (submissionEload != null) {
+            return submissionEload.getSubmissionId();
+        }
+
+        String submissionId = UUID.randomUUID().toString();
+
+        Optional<SubmissionAccount> optSubmissionAccount = submissionAccountRepository.findById(evaSubmissionAccount);
+        Submission submission = new Submission(submissionId);
+        submission.setSubmissionAccount(optSubmissionAccount.get());
+        submission.setStatus(SubmissionStatus.OPEN.toString());
+        submission.setInitiationTime(LocalDateTime.now());
+        submission = submissionRepository.save(submission);
+        submissionId = submission.getSubmissionId();
+
+        submissionEload = new SubmissionEload(submissionId, Integer.parseInt(identifier), "email");
+        submissionEloadRepository.save(submissionEload);
+
+        return submissionId;
     }
 
     @Transactional
