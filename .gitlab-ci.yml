@@ -33,7 +33,8 @@ deploy-to-cluster:prod:
     SERVICE_NAME: eva-submission-ws
     IMAGE_TAG: $CI_COMMIT_TAG
     ENV: prod
-    MAVEN_PROFILE: production
+    # Use production_processing to use EVAPRO rather than EVAPUB database
+    MAVEN_PROFILE: production_processing
     K8S_MANIFEST_PATH: k8s-manifests/eva-submission-ws/overlays/prod
     K8S_NAMESPACE: eva-submission-ws-prod
     KUBECONFIG_FILE: $KUBECONFIG_FILE_PROD
