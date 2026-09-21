@@ -55,7 +55,6 @@ build:docker:dev:
     IMAGE_TAG: dev-$CI_COMMIT_SHORT_SHA
   only:
     - main
-    - java21
 
 deploy-to-cluster:dev:
   extends: .update_and_deploy
@@ -73,7 +72,6 @@ deploy-to-cluster:dev:
     name: development
   only:
     - main
-    - java21
 
 # ============================================================================
 # STAGING: Deploy on main branch
@@ -95,4 +93,3 @@ deploy-to-cluster:staging:
     name: staging
   only:
     - main
-    - java21

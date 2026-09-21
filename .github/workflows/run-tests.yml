@@ -2,9 +2,9 @@ name: Run tests
 
 on:
   push:
-    branches: [ main, java21 ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, java21 ]
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
