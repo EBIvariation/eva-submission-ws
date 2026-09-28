@@ -22,7 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 RUN groupadd -r eva_submission_ws && useradd -r -g eva_submission_ws eva_submission_ws
 
 # Create config directory for runtime application.properties mount
-RUN mkdir -p /app/config && chown -R eva_submission_ws:eva_submission_ws /app
+# and the Tomcat base dir for access logs
+RUN mkdir -p /app/config /tmp/tomcat/logs  && chown -R eva_submission_ws:eva_submission_ws /app /tmp/tomcat
 
 # Copy the JAR file from build stage
 COPY --from=build /app/target/*.jar app.jar
