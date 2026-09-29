@@ -48,7 +48,7 @@ deploy-to-cluster:prod-fallback:
   variables:
     SERVICE_NAME: eva-submission-ws
     IMAGE_TAG: $CI_COMMIT_TAG
-    MAVEN_PROFILE: production_processing,production-fallback
+    MAVEN_PROFILE: production_processing,production_processing_fallback
     K8S_MANIFEST_PATH: k8s-manifests/eva-submission-ws/overlays/prod
     KUBECONFIG_FILE: $KUBECONFIG_FILE_PROD_FALLBACK
   environment:
