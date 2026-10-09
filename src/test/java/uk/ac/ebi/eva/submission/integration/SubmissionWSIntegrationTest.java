@@ -21,6 +21,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -1121,6 +1122,116 @@ public class SubmissionWSIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Failed to retrieve any file info from submission directory."));
+    }
+
+    // Metadata json with file1.vcf uploaded in one go and file2.vcf.gz (300 bytes) uploaded in the provided parts
+    private ObjectNode metadataWithFileUploadedInParts(ObjectMapper mapper, ArrayNode fileParts) {
+        ObjectNode metadataRootNode = mapper.createObjectNode();
+        ObjectNode projectNode = mapper.createObjectNode();
+        projectNode.put("title", "test_project_title");
+        projectNode.put("description", "test_project_description");
+        projectNode.put("taxId", 9606);
+
+        ArrayNode filesArrayNode = mapper.createArrayNode();
+        ObjectNode fileNode1 = mapper.createObjectNode();
+        fileNode1.put("fileName", "file1.vcf");
+        fileNode1.put("fileSize", 12345L);
+        ObjectNode fileNode2 = mapper.createObjectNode();
+        fileNode2.put("fileName", "file2.vcf.gz");
+        fileNode2.put("fileSize", 300L);
+        fileNode2.set("fileParts", fileParts);
+        filesArrayNode.add(fileNode1);
+        filesArrayNode.add(fileNode2);
+
+        ArrayNode analysisArrayNode = mapper.createArrayNode();
+        ObjectNode analysisNode = mapper.createObjectNode();
+        analysisNode.put("analysisAlias", "A1");
+        analysisNode.put("evidenceType", "allele_frequency");
+        analysisArrayNode.add(analysisNode);
+
+        metadataRootNode.set("project", projectNode);
+        metadataRootNode.set("files", filesArrayNode);
+        metadataRootNode.set("analysis", analysisArrayNode);
+        metadataRootNode.put("$schema", "https://raw.githubusercontent.com/EBIvariation/eva-sub-cli/refs/tags/v0.5.1/eva_sub_cli/etc/eva_schema.json");
+        return metadataRootNode;
+    }
+
+    private ObjectNode filePart(ObjectMapper mapper, String fileName, Long fileSize) {
+        ObjectNode partNode = mapper.createObjectNode();
+        partNode.put("fileName", fileName);
+        if (fileSize != null) {
+            partNode.put("fileSize", fileSize);
+        }
+        return partNode;
+    }
+
+    private ArrayNode fileParts(ObjectMapper mapper, long... partSizes) {
+        ArrayNode partsNode = mapper.createArrayNode();
+        for (int i = 0; i < partSizes.length; i++) {
+            partsNode.add(filePart(mapper, String.format("file2.vcf.gz.part%03d", i + 1), partSizes[i]));
+        }
+        return partsNode;
+    }
+
+    // Mock the Globus listing of the submission directory with the provided file names and sizes
+    private void mockUploadedFiles(ObjectMapper mapper, Object... namesAndSizes) throws Exception {
+        ObjectNode globusRootNode = mapper.createObjectNode();
+        ArrayNode dataNodeArray = mapper.createArrayNode();
+        for (int i = 0; i < namesAndSizes.length; i += 2) {
+            ObjectNode dataNode = mapper.createObjectNode();
+            dataNode.put("name", (String) namesAndSizes[i]);
+            dataNode.put("size", (Long) namesAndSizes[i + 1]);
+            dataNodeArray.add(dataNode);
+        }
+        globusRootNode.set("DATA", dataNodeArray);
+        when(globusDirectoryProvisioner.listSubmittedFiles(webinUserAccount.getId() + "/" + submissionId))
+                .thenReturn(mapper.writeValueAsString(globusRootNode));
+    }
+
+    private ResultActions markUploaded(ObjectMapper mapper, ObjectNode metadataRootNode) throws Exception {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(userToken);
+        return mvc.perform(put("/v1/submission/" + submissionId + "/uploaded")
+                .headers(httpHeaders)
+                .content(mapper.writeValueAsString(metadataRootNode))
+                .contentType(MediaType.APPLICATION_JSON));
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploadedWithFileUploadedInParts() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        mockUploadedFiles(mapper, "file1.vcf", 12345L, "file2.vcf.gz.part001", 128L, "file2.vcf.gz.part002", 128L,
+                "file2.vcf.gz.part003", 44L);
+        markUploaded(mapper, metadataWithFileUploadedInParts(mapper, fileParts(mapper, 128L, 128L, 44L)))
+                .andExpect(status().isOk());
+        assertThat(submissionRepository.findBySubmissionId(submissionId).getStatus())
+                .isEqualTo(SubmissionStatus.UPLOADED.toString());
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploadedWithFilePartWrongSize() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        mockUploadedFiles(mapper, "file1.vcf", 12345L, "file2.vcf.gz.part001", 128L, "file2.vcf.gz.part002", 100L,
+                "file2.vcf.gz.part003", 44L);
+        markUploaded(mapper, metadataWithFileUploadedInParts(mapper, fileParts(mapper, 128L, 128L, 44L)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("There are some files mentioned in metadata json whose size does not " +
+                        "match with the files uploaded.\n" +
+                        "file2.vcf.gz.part002: metadata json file size (128) is not equal to uploaded file size (100)\n"));
+    }
+
+    @Test
+    @Transactional
+    public void testMarkSubmissionUploadedWithFilePartsNotAddingUpToFileSize() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        mockUploadedFiles(mapper, "file1.vcf", 12345L, "file2.vcf.gz.part001", 128L, "file2.vcf.gz.part002", 128L);
+        markUploaded(mapper, metadataWithFileUploadedInParts(mapper, fileParts(mapper, 128L, 128L)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("There are some files uploaded in parts whose parts are not correctly " +
+                        "described in metadata json.\n" +
+                        "file2.vcf.gz: the sizes of its parts add up to 256 instead of its size (300)\n"));
     }
 
     @Test
