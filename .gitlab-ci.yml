@@ -57,7 +57,9 @@ deploy-to-cluster:prod-fallback:
     - tags
 
 # ============================================================================
-# DEVELOPMENT: Deploy on main branch
+# DEVELOPMENT: Manual deploy from any branch
+# The image is built automatically on main  also needs it) and on demand
+# on other branches. The deploy to dev is triggered manually.
 # ============================================================================
 
 build:docker:dev:
@@ -66,8 +68,10 @@ build:docker:dev:
     SERVICE_NAME: eva-submission-ws
     IMAGE_REPOSITORY: dockerhub.ebi.ac.uk/ebivariation/eva-submission-ws
     IMAGE_TAG: dev-$CI_COMMIT_SHORT_SHA
-  only:
-    - main
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH
+      when: manual
 
 deploy-to-cluster:dev:
   extends: .update_and_deploy
@@ -81,8 +85,9 @@ deploy-to-cluster:dev:
     KUBECONFIG_FILE: $KUBECONFIG_FILE_DEV
   environment:
     name: development
-  only:
-    - main
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      when: manual
 
 # ============================================================================
 # STAGING: Deploy on main branch
