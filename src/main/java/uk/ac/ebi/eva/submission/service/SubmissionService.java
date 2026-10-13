@@ -49,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,6 +76,7 @@ public class SubmissionService {
     private static final String METADATA_FILES_TAG = "files";
     private static final String METADATA_FILE_NAME = "fileName";
     private static final String METADATA_FILE_SIZE = "fileSize";
+    private static final String METADATA_FILE_PARTS = "fileParts";
     private static final String GLOBUS_FILES_TAG = "DATA";
     private static final String GLOBUS_FILE_NAME = "name";
     private static final String GLOBUS_FILE_SIZE = "size";
@@ -233,13 +235,35 @@ public class SubmissionService {
     }
 
     public void checkMetadataFileInfoMatchesWithUploadedFiles(SubmissionAccount submissionAccount, String submissionId, JsonNode metadataJson) {
-        Map<String, Long> metadataFileInfo = new HashMap<>();
-        if (metadataJson.get(METADATA_FILES_TAG) != null) {
-            metadataFileInfo = StreamSupport.stream(metadataJson.get(METADATA_FILES_TAG).spliterator(), false)
-                    .collect(Collectors.toMap(
-                            dataNode -> dataNode.get(METADATA_FILE_NAME).asText(),
-                            dataNode -> dataNode.get(METADATA_FILE_SIZE).asLong()
-                    ));
+        // Match name and size of each file expected in the upload directory (including File parts)
+        // For File parts upload, calculate the sum of the size and match with the expected complete file size
+        Map<String, Long> metadataFileInfo = new LinkedHashMap<>();
+        String filePartsErrorInfo = "";
+        JsonNode filesNode = metadataJson.get(METADATA_FILES_TAG);
+        if (filesNode != null) {
+            for (JsonNode fileNode : filesNode) {
+                String fileName = fileNode.get(METADATA_FILE_NAME).asText();
+                long fileSize = fileNode.get(METADATA_FILE_SIZE).asLong();
+                JsonNode filePartsNode = fileNode.get(METADATA_FILE_PARTS);
+                if (filePartsNode != null && filePartsNode.isArray() && !filePartsNode.isEmpty()) {
+                    long totalPartsSize = 0;
+                    for (JsonNode partNode : filePartsNode) {
+                        if (!partNode.hasNonNull(METADATA_FILE_NAME) || !partNode.hasNonNull(METADATA_FILE_SIZE)) {
+                            filePartsErrorInfo += fileName + ": all parts must have a fileName and a fileSize\n";
+                            continue;
+                        }
+                        long partSize = partNode.get(METADATA_FILE_SIZE).asLong();
+                        metadataFileInfo.put(partNode.get(METADATA_FILE_NAME).asText(), partSize);
+                        totalPartsSize += partSize;
+                    }
+                    if (totalPartsSize != fileSize) {
+                        filePartsErrorInfo += fileName + ": the sizes of its parts add up to " + totalPartsSize +
+                                " instead of its size (" + fileSize + ")\n";
+                    }
+                } else {
+                    metadataFileInfo.put(fileName, fileSize);
+                }
+            }
         }
         if (metadataFileInfo.isEmpty()) {
             logger.error("Metadata json file for submission {} does not have any file info", submissionId);
@@ -284,11 +308,12 @@ public class SubmissionService {
                 }
             }
 
-            if (!missingFileList.isEmpty() || !fileSizeMismatchInfo.isEmpty()) {
+            if (!missingFileList.isEmpty() || !fileSizeMismatchInfo.isEmpty() || !filePartsErrorInfo.isEmpty()) {
                 String missingFileMsg = missingFileList.isEmpty() ? "" : "There are some files mentioned in metadata json but not uploaded. Files : " + String.join(", ", missingFileList) + "\n";
                 String fileSizeMismatchMsg = fileSizeMismatchInfo.isEmpty() ? "" : "There are some files mentioned in metadata json whose size does not match with the files uploaded.\n" + fileSizeMismatchInfo;
-                logger.error("File Info Mismatch error in submission {}. \n {}", submissionId, missingFileMsg + fileSizeMismatchMsg);
-                throw new MetadataFileInfoMismatchException(missingFileMsg + fileSizeMismatchMsg);
+                String filePartsMsg = filePartsErrorInfo.isEmpty() ? "" : "There are some files uploaded in parts whose parts are not correctly described in metadata json.\n" + filePartsErrorInfo;
+                logger.error("File Info Mismatch error in submission {}. \n {}", submissionId, missingFileMsg + fileSizeMismatchMsg + filePartsMsg);
+                throw new MetadataFileInfoMismatchException(missingFileMsg + fileSizeMismatchMsg + filePartsMsg);
             }
         }
     }
