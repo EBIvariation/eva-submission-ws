@@ -13,6 +13,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -211,4 +212,37 @@ public class AdminController extends BaseController {
         }
     }
 
+    @Operation(summary = "Given a submission id, this endpoint fetches the tracking details (release date, etc.)",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission to fetch",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @GetMapping("submission/{submissionId}/trackingDetails")
+    public ResponseEntity<?> getTrackingDetails(@PathVariable("submissionId") String submissionId) {
+        try {
+            return new ResponseEntity<>(submissionService.getTrackingDetails(submissionId), HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
+
+    @Operation(summary = "Given a submission id, this endpoint deletes the tracking details (release date, etc.)",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission whose tracking details should be deleted",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @DeleteMapping("submission/{submissionId}/trackingDetails")
+    public ResponseEntity<?> clearTrackingDetails(@PathVariable("submissionId") String submissionId) {
+        try {
+            submissionService.clearTrackingDetails(submissionId);
+            return ResponseEntity.noContent().build();
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
 }

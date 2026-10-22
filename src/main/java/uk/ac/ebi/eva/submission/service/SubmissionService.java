@@ -627,4 +627,11 @@ public class SubmissionService {
         return submissionTrackingDetailsRepository.save(submissionTrackingDetails);
     }
 
+    public SubmissionTrackingDetails getTrackingDetails(String submissionId) {
+        return submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+    }
+
+    public void clearTrackingDetails(String submissionId) {
+        submissionTrackingDetailsRepository.deleteBySubmissionId(submissionId);
+    }
 }
