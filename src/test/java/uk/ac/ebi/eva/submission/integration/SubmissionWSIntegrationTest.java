@@ -2074,9 +2074,6 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetTrackingDetails() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
@@ -2090,10 +2087,7 @@ public class SubmissionWSIntegrationTest {
         rootNode.set("analyses", analysesNode);
         rootNode.put("rtLink", "https://rt.com/1234");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isOk());
 
         SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
@@ -2112,19 +2106,13 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetTrackingDetails_malformedDate() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("releaseDate", "1-Jan-2026");
         rootNode.put("projectAccession", "PRJEB123");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isBadRequest());
 
         SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
@@ -2134,19 +2122,13 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetTrackingDetails_malformedUri() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("rtLink", "bad link");
         rootNode.put("projectAccession", "PRJEB123");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isBadRequest());
 
         SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
@@ -2162,18 +2144,12 @@ public class SubmissionWSIntegrationTest {
         submissionDetails.setReleaseDate(LocalDate.of(2027, 1, 1));
         submissionTrackingDetailsRepository.save(submissionDetails);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body only updates release date
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("releaseDate", "2027-12-12");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isOk());
 
         // Assert results: release date updated, project accession unchanged and analysis accessions still unset
@@ -2229,7 +2205,7 @@ public class SubmissionWSIntegrationTest {
         ObjectNode analysis = analyses.addObject();
         analysis.put("analysisAlias", "analysis-1");
         analysis.put("analysisAccession", "ERZ456");
-        analysis.put("aggregationType", "SINGLE");
+        analysis.put("aggregationType", "NONE");
         ObjectNode sample = analysis.putArray("samples").addObject();
         sample.put("sampleName", "sample-1");
         sample.put("sampleAccession", "SAMEA123");
@@ -2256,7 +2232,7 @@ public class SubmissionWSIntegrationTest {
                 new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz")).orElseThrow();
 
         assertThat(savedAnalysis.getAnalysisAccession()).isEqualTo("ERZ999");
-        assertThat(savedAnalysis.getAggregationType()).isEqualTo("SINGLE");
+        assertThat(savedAnalysis.getAggregationType()).isEqualTo("NONE");
         assertThat(savedSample.getSampleAccession()).isEqualTo("SAMEA999");
         assertThat(savedVcf.getBrokeredFile()).isEqualTo("brokered.vcf.gz");
         assertThat(savedVcf.getCsiFile()).isEqualTo("input.vcf.gz.csi");

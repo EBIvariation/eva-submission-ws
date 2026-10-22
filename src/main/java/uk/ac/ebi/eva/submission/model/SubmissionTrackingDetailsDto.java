@@ -16,18 +16,59 @@ public class SubmissionTrackingDetailsDto {
     private List<SubmittedAnalysisDto> analyses;
     private URI rtLink;
 
-    public LocalDate getReleaseDate() { return releaseDate; }
-    public void setReleaseDate(LocalDate releaseDate) { this.releaseDate = releaseDate; }
-    public String getProjectAccession() { return projectAccession; }
-    public void setProjectAccession(String projectAccession) { this.projectAccession = projectAccession; }
-    public String getProjectTitle() { return projectTitle; }
-    public void setProjectTitle(String projectTitle) { this.projectTitle = projectTitle; }
-    public String getProjectTaxonomies() { return projectTaxonomies; }
-    public void setProjectTaxonomies(String projectTaxonomies) { this.projectTaxonomies = projectTaxonomies; }
-    public String getMetadataJsonFile() { return metadataJsonFile; }
-    public void setMetadataJsonFile(String metadataJsonFile) { this.metadataJsonFile = metadataJsonFile; }
-    public List<SubmittedAnalysisDto> getAnalyses() { return analyses; }
-    public void setAnalyses(List<SubmittedAnalysisDto> analyses) { this.analyses = analyses; }
-    public URI getRtLink() { return rtLink; }
-    public void setRtLink(URI rtLink) { this.rtLink = rtLink; }
+    public LocalDate getReleaseDate() {
+        return releaseDate;
+    }
+
+    public void setReleaseDate(LocalDate releaseDate) {
+        this.releaseDate = releaseDate;
+    }
+
+    public String getProjectAccession() {
+        return projectAccession;
+    }
+
+    public void setProjectAccession(String projectAccession) {
+        this.projectAccession = projectAccession;
+    }
+
+    public String getProjectTitle() {
+        return projectTitle;
+    }
+
+    public void setProjectTitle(String projectTitle) {
+        this.projectTitle = projectTitle;
+    }
+
+    public String getProjectTaxonomies() {
+        return projectTaxonomies;
+    }
+
+    public void setProjectTaxonomies(String projectTaxonomies) {
+        this.projectTaxonomies = projectTaxonomies;
+    }
+
+    public String getMetadataJsonFile() {
+        return metadataJsonFile;
+    }
+
+    public void setMetadataJsonFile(String metadataJsonFile) {
+        this.metadataJsonFile = metadataJsonFile;
+    }
+
+    public List<SubmittedAnalysisDto> getAnalyses() {
+        return analyses;
+    }
+
+    public void setAnalyses(List<SubmittedAnalysisDto> analyses) {
+        this.analyses = analyses;
+    }
+
+    public URI getRtLink() {
+        return rtLink;
+    }
+
+    public void setRtLink(URI rtLink) {
+        this.rtLink = rtLink;
+    }
 }

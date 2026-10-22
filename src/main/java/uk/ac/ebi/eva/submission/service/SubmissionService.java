@@ -618,6 +618,15 @@ public class SubmissionService {
         return URI.create(value);
     }
 
+    /**
+     * Updates submission tracking details. Only properties included in the tracking details DTOs are updated, this
+     * applies to nested entities as well. Nested entities are identified via their key fields (analysis alias for
+     * SubmittedAnalysis, etc.) which cannot be modified, and nested entities can also be added via new key fields.
+     *
+     * @param submissionId ID of the submission to update
+     * @param trackingDetails DTO specifying updates to make
+     * @return updated tracking details
+     */
     @Transactional
     public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
         Optional<Submission> submission = submissionRepository.findById(submissionId);
@@ -631,6 +640,7 @@ public class SubmissionService {
             submissionTrackingDetails = new SubmissionTrackingDetails(submissionId);
         }
 
+        // Update submission-level tracking properties
         if (trackingDetails.getReleaseDate() != null) {
             submissionTrackingDetails.setReleaseDate(trackingDetails.getReleaseDate());
         }
@@ -650,6 +660,7 @@ public class SubmissionService {
             submissionTrackingDetails.setRtLink(trackingDetails.getRtLink().toString());
         }
 
+        // Update or add nested analysis objects
         if (trackingDetails.getAnalyses() != null && !trackingDetails.getAnalyses().isEmpty()) {
             if (submissionTrackingDetails.getAnalyses() == null) {
                 submissionTrackingDetails.setAnalyses(new ArrayList<>());
@@ -672,6 +683,7 @@ public class SubmissionService {
                 if (!submissionTrackingDetails.getAnalyses().contains(analysis)) {
                     submissionTrackingDetails.getAnalyses().add(analysis);
                 }
+                // Update or add nested sample and VCF objects
                 updateSamples(analysis, submissionId, analysisAlias, analysisDto.getSamples());
                 updateVcfs(analysis, submissionId, analysisAlias, analysisDto.getVcfs());
             }
