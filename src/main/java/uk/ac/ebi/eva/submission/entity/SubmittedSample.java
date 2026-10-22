@@ -13,6 +13,15 @@ import java.util.Objects;
 @Table(schema = "eva_submissions", name = "submitted_sample")
 public class SubmittedSample {
 
+    public SubmittedSample() {
+    }
+
+    public SubmittedSample(String submissionId, String analysisAlias, String sampleName) {
+        this.submissionId = submissionId;
+        this.analysisAlias = analysisAlias;
+        this.sampleName = sampleName;
+    }
+
     @Id
     @Column(name = "submission_id")
     private String submissionId;
@@ -32,13 +41,16 @@ public class SubmittedSample {
 
         private String submissionId;
 
+        private String analysisAlias;
+
         private String sampleName;
 
         public SubmittedSampleId() {
         }
 
-        public SubmittedSampleId(String submissionId, String sampleName) {
+        public SubmittedSampleId(String submissionId, String analysisAlias, String sampleName) {
             this.submissionId = submissionId;
+            this.analysisAlias = analysisAlias;
             this.sampleName = sampleName;
         }
 
@@ -52,12 +64,13 @@ public class SubmittedSample {
             }
             SubmittedSampleId that = (SubmittedSampleId) object;
             return Objects.equals(submissionId, that.submissionId)
+                    && Objects.equals(analysisAlias, that.analysisAlias)
                     && Objects.equals(sampleName, that.sampleName);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(submissionId, sampleName);
+            return Objects.hash(submissionId, analysisAlias, sampleName);
         }
     }
 

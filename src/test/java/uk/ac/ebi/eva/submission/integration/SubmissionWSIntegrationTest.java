@@ -2067,9 +2067,12 @@ public class SubmissionWSIntegrationTest {
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("releaseDate", "2027-01-01");
         rootNode.put("projectAccession", "PRJEB123");
-        ArrayNode arrayNode = mapper.createArrayNode();
-        arrayNode.add("ERZ456");
-        rootNode.set("analysisAccessions", arrayNode);
+        ObjectNode analysisNode = mapper.createObjectNode();
+        analysisNode.put("analysisAlias", "analysis-1");
+        analysisNode.put("analysisAccession", "ERZ456");
+        ArrayNode analysesNode = mapper.createArrayNode();
+        analysesNode.add(analysisNode);
+        rootNode.set("analyses", analysesNode);
         rootNode.put("rtLink", "https://rt.com/1234");
 
         mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
@@ -2084,9 +2087,9 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getReleaseDate()).isEqualTo(LocalDate.of(2027, 1, 1));
         assertThat(submissionDetails.getProjectAccession()).isNotNull();
         assertThat(submissionDetails.getProjectAccession()).isEqualTo("PRJEB123");
-        assertThat(submissionDetails.getAnalysisAccessions()).isNotNull();
-        assertThat(submissionDetails.getAnalysisAccessions().size()).isEqualTo(1);
-        assertThat(submissionDetails.getAnalysisAccessions().get(0)).isEqualTo("ERZ456");
+        assertThat(submissionDetails.getAnalyses()).isNotNull();
+        assertThat(submissionDetails.getAnalyses()).hasSize(1);
+        assertThat(submissionDetails.getAnalyses().get(0).getAnalysisAccession()).isEqualTo("ERZ456");
         assertThat(submissionDetails.getRtLink()).isNotNull();
         assertThat(submissionDetails.getRtLink()).isEqualTo("https://rt.com/1234");
     }
@@ -2165,7 +2168,7 @@ public class SubmissionWSIntegrationTest {
         assertThat(updatedSubmissionDetails.getReleaseDate()).isEqualTo(LocalDate.of(2027, 12, 12));
         assertThat(updatedSubmissionDetails.getProjectAccession()).isNotNull();
         assertThat(updatedSubmissionDetails.getProjectAccession()).isEqualTo("PRJEB123");
-        assertThat(updatedSubmissionDetails.getAnalysisAccessions()).isNull();
+        assertThat(updatedSubmissionDetails.getAnalyses()).isNull();
     }
 
     @Test

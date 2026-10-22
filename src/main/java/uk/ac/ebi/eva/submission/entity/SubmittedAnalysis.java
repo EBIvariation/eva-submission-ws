@@ -17,6 +17,14 @@ import java.util.Objects;
 @Table(schema = "eva_submissions", name = "submitted_analysis")
 public class SubmittedAnalysis {
 
+    public SubmittedAnalysis() {
+    }
+
+    public SubmittedAnalysis(String submissionId, String analysisAlias) {
+        this.submissionId = submissionId;
+        this.analysisAlias = analysisAlias;
+    }
+
     @Id
     @Column(name = "submission_id")
     private String submissionId;
@@ -37,13 +45,21 @@ public class SubmittedAnalysis {
     @OneToMany
     @JoinTable(name = "submitted_analysis_submitted_vcf",
             joinColumns = {@JoinColumn(name = "submission_id"), @JoinColumn(name = "analysis_alias")},
-            inverseJoinColumns = {@JoinColumn(name = "submission_id"), @JoinColumn(name = "analysis_alias")})
+            inverseJoinColumns = {
+                    @JoinColumn(name = "submission_id"),
+                    @JoinColumn(name = "analysis_alias"),
+                    @JoinColumn(name = "submitted_file")
+            })
     private List<SubmittedVcf> vcfs;
 
     @OneToMany
     @JoinTable(name = "submitted_analysis_submitted_sample",
             joinColumns = {@JoinColumn(name = "submission_id") , @JoinColumn(name = "analysis_alias")},
-            inverseJoinColumns = {@JoinColumn(name = "submission_id") , @JoinColumn(name = "analysis_alias")})
+            inverseJoinColumns = {
+                    @JoinColumn(name = "submission_id"),
+                    @JoinColumn(name = "analysis_alias"),
+                    @JoinColumn(name = "sample_name")
+            })
     private List<SubmittedSample> samples;
 
     public static final class SubmittedAnalysisId {

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
+import uk.ac.ebi.eva.submission.exception.InvalidTrackingDetailsException;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
@@ -29,6 +30,11 @@ public class BaseController {
     @ExceptionHandler(SubmissionDoesNotExistException.class)
     public ResponseEntity<?> handleException(SubmissionDoesNotExistException submissionDoesNotExistException) {
         return new ResponseEntity<>(submissionDoesNotExistException.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(InvalidTrackingDetailsException.class)
+    public ResponseEntity<?> handleException(InvalidTrackingDetailsException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
     public SubmissionAccount getSubmissionAccount(String bearerToken) {

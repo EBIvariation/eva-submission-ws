@@ -13,6 +13,15 @@ import java.util.Objects;
 @Table(schema = "eva_submissions", name = "submitted_vcf")
 public class SubmittedVcf {
 
+    public SubmittedVcf() {
+    }
+
+    public SubmittedVcf(String submissionId, String analysisAlias, String submittedFile) {
+        this.submissionId = submissionId;
+        this.analysisAlias = analysisAlias;
+        this.submittedFile = submittedFile;
+    }
+
     @Id
     @Column(name = "submission_id")
     private String submissionId;
