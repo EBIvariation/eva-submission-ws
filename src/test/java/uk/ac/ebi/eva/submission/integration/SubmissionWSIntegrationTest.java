@@ -39,6 +39,9 @@ import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
+import uk.ac.ebi.eva.submission.entity.SubmittedAnalysis;
+import uk.ac.ebi.eva.submission.entity.SubmittedSample;
+import uk.ac.ebi.eva.submission.entity.SubmittedVcf;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
@@ -48,6 +51,9 @@ import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedAnalysisRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedSampleRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedVcfRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.service.LoginMethod;
@@ -130,6 +136,15 @@ public class SubmissionWSIntegrationTest {
 
     @Autowired
     private SubmissionProcessingRepository submissionProcessingRepository;
+
+    @Autowired
+    private SubmittedAnalysisRepository submittedAnalysisRepository;
+
+    @Autowired
+    private SubmittedSampleRepository submittedSampleRepository;
+
+    @Autowired
+    private SubmittedVcfRepository submittedVcfRepository;
 
     @MockBean
     private EnaDownloader enaDownloader;
@@ -2169,6 +2184,128 @@ public class SubmissionWSIntegrationTest {
         assertThat(updatedSubmissionDetails.getProjectAccession()).isNotNull();
         assertThat(updatedSubmissionDetails.getProjectAccession()).isEqualTo("PRJEB123");
         assertThat(updatedSubmissionDetails.getAnalyses()).isNull();
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_createsNestedEntities() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        ArrayNode analyses = rootNode.putArray("analyses");
+        ObjectNode analysisNode = analyses.addObject();
+        analysisNode.put("analysisAlias", "analysis-1");
+        analysisNode.put("analysisAccession", "ERZ456");
+        ArrayNode samples = analysisNode.putArray("samples");
+        ObjectNode sample = samples.addObject();
+        sample.put("analysisAlias", "analysis-1");
+        sample.put("sampleName", "sample-1");
+        sample.put("sampleAccession", "SAMEA123");
+        ArrayNode vcfs = analysisNode.putArray("vcfs");
+        ObjectNode vcf = vcfs.addObject();
+        vcf.put("analysisAlias", "analysis-1");
+        vcf.put("submittedFile", "input.vcf.gz");
+        vcf.put("brokeredFile", "brokered.vcf.gz");
+
+        performTrackingUpdate(mapper, rootNode).andExpect(status().isOk());
+
+        SubmittedAnalysis analysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        SubmittedSample savedSample = submittedSampleRepository.findById(
+                new SubmittedSample.SubmittedSampleId(submissionId, "analysis-1", "sample-1")).orElseThrow();
+        SubmittedVcf savedVcf = submittedVcfRepository.findById(
+                new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz")).orElseThrow();
+
+        assertThat(analysis.getAnalysisAccession()).isEqualTo("ERZ456");
+        assertThat(savedSample.getSampleAccession()).isEqualTo("SAMEA123");
+        assertThat(savedVcf.getBrokeredFile()).isEqualTo("brokered.vcf.gz");
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_recursivelyPartiallyUpdatesNestedEntities() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode initial = mapper.createObjectNode();
+        ArrayNode analyses = initial.putArray("analyses");
+        ObjectNode analysis = analyses.addObject();
+        analysis.put("analysisAlias", "analysis-1");
+        analysis.put("analysisAccession", "ERZ456");
+        analysis.put("aggregationType", "SINGLE");
+        ObjectNode sample = analysis.putArray("samples").addObject();
+        sample.put("sampleName", "sample-1");
+        sample.put("sampleAccession", "SAMEA123");
+        ObjectNode vcf = analysis.putArray("vcfs").addObject();
+        vcf.put("submittedFile", "input.vcf.gz");
+        vcf.put("brokeredFile", "brokered.vcf.gz");
+        performTrackingUpdate(mapper, initial).andExpect(status().isOk());
+
+        ObjectNode update = mapper.createObjectNode();
+        ObjectNode updatedAnalysis = update.putArray("analyses").addObject();
+        updatedAnalysis.put("analysisAlias", "analysis-1");
+        updatedAnalysis.put("analysisAccession", "ERZ999");
+        updatedAnalysis.putArray("samples").addObject().put("sampleName", "sample-1")
+                .put("sampleAccession", "SAMEA999");
+        updatedAnalysis.putArray("vcfs").addObject().put("submittedFile", "input.vcf.gz")
+                .put("csiFile", "input.vcf.gz.csi");
+        performTrackingUpdate(mapper, update).andExpect(status().isOk());
+
+        SubmittedAnalysis savedAnalysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        SubmittedSample savedSample = submittedSampleRepository.findById(
+                new SubmittedSample.SubmittedSampleId(submissionId, "analysis-1", "sample-1")).orElseThrow();
+        SubmittedVcf savedVcf = submittedVcfRepository.findById(
+                new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz")).orElseThrow();
+
+        assertThat(savedAnalysis.getAnalysisAccession()).isEqualTo("ERZ999");
+        assertThat(savedAnalysis.getAggregationType()).isEqualTo("SINGLE");
+        assertThat(savedSample.getSampleAccession()).isEqualTo("SAMEA999");
+        assertThat(savedVcf.getBrokeredFile()).isEqualTo("brokered.vcf.gz");
+        assertThat(savedVcf.getCsiFile()).isEqualTo("input.vcf.gz.csi");
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_emptyNestedListLeavesChildrenUnchanged() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode initial = mapper.createObjectNode();
+        initial.putArray("analyses").addObject().put("analysisAlias", "analysis-1")
+                .put("analysisAccession", "ERZ456");
+        performTrackingUpdate(mapper, initial).andExpect(status().isOk());
+
+        ObjectNode update = mapper.createObjectNode();
+        update.put("projectTitle", "Updated title");
+        update.putArray("analyses");
+        performTrackingUpdate(mapper, update).andExpect(status().isOk());
+
+        SubmittedAnalysis analysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        assertThat(analysis.getAnalysisAccession()).isEqualTo("ERZ456");
+    }
+
+    @Test
+    public void testSetTrackingDetails_rejectsNestedImmutableKeyMismatchAndRollsBack() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        ObjectNode analysis = rootNode.putArray("analyses").addObject();
+        analysis.put("analysisAlias", "analysis-1");
+        analysis.putArray("samples").addObject()
+                .put("analysisAlias", "different-analysis")
+                .put("sampleName", "sample-1")
+                .put("sampleAccession", "SAMEA123");
+
+        performTrackingUpdate(mapper, rootNode).andExpect(status().isBadRequest());
+
+        assertThat(submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1"))).isEmpty();
+        assertThat(submissionTrackingDetailsRepository.findBySubmissionId(submissionId)).isNull();
+    }
+
+    private ResultActions performTrackingUpdate(ObjectMapper mapper, ObjectNode body) throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        return mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                .headers(headers)
+                .content(mapper.writeValueAsString(body))
+                .contentType(MediaType.APPLICATION_JSON));
     }
 
     @Test

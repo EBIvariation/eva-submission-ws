@@ -43,10 +43,10 @@ public class SubmissionTrackingDetails {
 
     @OneToMany
     @JoinTable(name = "submission_submitted_analysis",
-            joinColumns = @JoinColumn(name = "submission_id"),
+            joinColumns = @JoinColumn(name = "submission_id", insertable = false, updatable = false),
             inverseJoinColumns = {
-                    @JoinColumn(name = "submission_id"),
-                    @JoinColumn(name = "analysis_alias")
+                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
+                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false)
             })
     private List<SubmittedAnalysis> analyses;
 

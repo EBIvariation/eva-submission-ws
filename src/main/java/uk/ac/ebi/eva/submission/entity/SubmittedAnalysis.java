@@ -44,21 +44,27 @@ public class SubmittedAnalysis {
 
     @OneToMany
     @JoinTable(name = "submitted_analysis_submitted_vcf",
-            joinColumns = {@JoinColumn(name = "submission_id"), @JoinColumn(name = "analysis_alias")},
+            joinColumns = {
+                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
+                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false)
+            },
             inverseJoinColumns = {
-                    @JoinColumn(name = "submission_id"),
-                    @JoinColumn(name = "analysis_alias"),
-                    @JoinColumn(name = "submitted_file")
+                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
+                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false),
+                    @JoinColumn(name = "submitted_file", insertable = false, updatable = false)
             })
     private List<SubmittedVcf> vcfs;
 
     @OneToMany
     @JoinTable(name = "submitted_analysis_submitted_sample",
-            joinColumns = {@JoinColumn(name = "submission_id") , @JoinColumn(name = "analysis_alias")},
+            joinColumns = {
+                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
+                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false)
+            },
             inverseJoinColumns = {
-                    @JoinColumn(name = "submission_id"),
-                    @JoinColumn(name = "analysis_alias"),
-                    @JoinColumn(name = "sample_name")
+                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
+                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false),
+                    @JoinColumn(name = "sample_name", insertable = false, updatable = false)
             })
     private List<SubmittedSample> samples;
 
