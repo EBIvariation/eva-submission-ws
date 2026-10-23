@@ -93,6 +93,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -1513,8 +1514,7 @@ public class SubmissionWSIntegrationTest {
         String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
         String submissionId3 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submissions/status/" + SubmissionStatus.UPLOADED)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1534,8 +1534,7 @@ public class SubmissionWSIntegrationTest {
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.ON_HOLD);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submission-processes/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1554,8 +1553,7 @@ public class SubmissionWSIntegrationTest {
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.ON_HOLD);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId1 + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1578,8 +1576,7 @@ public class SubmissionWSIntegrationTest {
     public void testMarkSubmissionProcessStepAndStatusCreateFirstEntry() throws Exception {
         String submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1602,8 +1599,7 @@ public class SubmissionWSIntegrationTest {
     public void testMarkSubmissionProcessStepAndStatusSubmissionDoesNotExist() throws Exception {
         String submissionId = "test-wrong-submission-id";
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1614,8 +1610,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatus_Cancelled() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.CANCELLED)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1629,8 +1624,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatus_Completed() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.INGESTION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1645,8 +1639,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatus_UnsupportedCombination() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.ON_HOLD)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1676,8 +1669,7 @@ public class SubmissionWSIntegrationTest {
 
         createNewSubmissionDetailEntry(submissionId1, projectTitle, projectDescription, metadataRootNode);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submission/" + submissionId1)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1693,8 +1685,7 @@ public class SubmissionWSIntegrationTest {
         Integer eload = 123;
         String source = "email";
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         MvcResult result = mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId?source=" + source)
                         .headers(httpHeaders)
@@ -1733,8 +1724,7 @@ public class SubmissionWSIntegrationTest {
         rootNode.put("submissionId", submissionId);
         rootNode.put("source", source);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         mvc.perform(put("/v1/admin/submission/eload/submissionId")
                         .headers(httpHeaders)
@@ -1759,8 +1749,7 @@ public class SubmissionWSIntegrationTest {
         rootNode.put("eload", eload);
         rootNode.put("submissionId", submissionId);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         mvc.perform(put("/v1/admin/submission/eload/submissionId")
                         .headers(httpHeaders)
@@ -1785,8 +1774,7 @@ public class SubmissionWSIntegrationTest {
         rootNode.put("submissionId", submissionId_1);
         rootNode.put("source", source);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         SubmissionEload submissionEload = new SubmissionEload(submissionId_1, eload_2, source);
         submissionEloadRepository.save(submissionEload);
@@ -1816,8 +1804,7 @@ public class SubmissionWSIntegrationTest {
     @Transactional
     public void testSubmissionProcessingHistory() throws Exception {
         String submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -2036,8 +2023,7 @@ public class SubmissionWSIntegrationTest {
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION, SubmissionProcessingStatus.SUCCESS);
         createNewSubmissionDetailEntry(submissionId2, "Project 2", "Description 2", mapper.createObjectNode());
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submissions")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -2060,8 +2046,7 @@ public class SubmissionWSIntegrationTest {
         submissionAccountRepository.save(otherAccount);
         String otherSubmissionId = createNewSubmissionEntry(otherAccount, SubmissionStatus.OPEN);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submissions")
                         .param("submissionAccount", webinUserAccount.getId())
                         .headers(httpHeaders)
@@ -2239,6 +2224,33 @@ public class SubmissionWSIntegrationTest {
     }
 
     @Test
+    public void testGetTrackingDetails() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode trackingDetails = mapper.createObjectNode()
+                .put("projectTitle", "Test project");
+        performTrackingUpdate(mapper, trackingDetails).andExpect(status().isOk());
+
+        mvc.perform(get("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(adminHeaders()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projectTitle").value("Test project"));
+    }
+
+    @Test
+    public void testClearTrackingDetails() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode trackingDetails = mapper.createObjectNode()
+                .put("projectTitle", "Test project");
+        performTrackingUpdate(mapper, trackingDetails).andExpect(status().isOk());
+
+        mvc.perform(delete("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(adminHeaders()))
+                .andExpect(status().isNoContent());
+
+        assertThat(submissionTrackingDetailsRepository.findBySubmissionId(submissionId)).isNull();
+    }
+
+    @Test
     @Transactional
     public void testSetTrackingDetails_emptyNestedListLeavesChildrenUnchanged() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
@@ -2276,12 +2288,17 @@ public class SubmissionWSIntegrationTest {
     }
 
     private ResultActions performTrackingUpdate(ObjectMapper mapper, ObjectNode body) throws Exception {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders headers = adminHeaders();
         return mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
                 .headers(headers)
                 .content(mapper.writeValueAsString(body))
                 .contentType(MediaType.APPLICATION_JSON));
+    }
+
+    private HttpHeaders adminHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        return headers;
     }
 
     @Test
