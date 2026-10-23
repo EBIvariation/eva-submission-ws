@@ -2237,6 +2237,7 @@ public class SubmissionWSIntegrationTest {
     }
 
     @Test
+    @Transactional
     public void testClearTrackingDetails() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode trackingDetails = mapper.createObjectNode()
