@@ -20,20 +20,30 @@ import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
+import uk.ac.ebi.eva.submission.entity.SubmittedAnalysis;
+import uk.ac.ebi.eva.submission.entity.SubmittedSample;
+import uk.ac.ebi.eva.submission.entity.SubmittedVcf;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
+import uk.ac.ebi.eva.submission.exception.InvalidTrackingDetailsException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionSummaryDto;
 import uk.ac.ebi.eva.submission.model.SubmissionTrackingDetailsDto;
+import uk.ac.ebi.eva.submission.model.SubmittedAnalysisDto;
+import uk.ac.ebi.eva.submission.model.SubmittedSampleDto;
+import uk.ac.ebi.eva.submission.model.SubmittedVcfDto;
 import uk.ac.ebi.eva.submission.repository.SubmissionAccountRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionDetailsRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedAnalysisRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedSampleRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedVcfRepository;
 import uk.ac.ebi.eva.submission.util.BioSamplesUtils;
 import uk.ac.ebi.eva.submission.util.EmailNotificationHelper;
 import uk.ac.ebi.eva.submission.util.EnaUtils;
@@ -95,6 +105,9 @@ public class SubmissionService {
     private final SubmissionEloadRepository submissionEloadRepository;
 
     private final SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
+    private final SubmittedAnalysisRepository submittedAnalysisRepository;
+    private final SubmittedSampleRepository submittedSampleRepository;
+    private final SubmittedVcfRepository submittedVcfRepository;
 
     private final GlobusDirectoryProvisioner globusDirectoryProvisioner;
 
@@ -118,6 +131,9 @@ public class SubmissionService {
                              SubmissionProcessingRepository submissionProcessingRepository,
                              SubmissionEloadRepository submissionEloadRepository,
                              SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository,
+                             SubmittedAnalysisRepository submittedAnalysisRepository,
+                             SubmittedSampleRepository submittedSampleRepository,
+                             SubmittedVcfRepository submittedVcfRepository,
                              GlobusDirectoryProvisioner globusDirectoryProvisioner,
                              MailSender mailSender, EmailNotificationHelper emailHelper,
                              EnaUtils enaUtils, BioSamplesUtils bioSamplesUtils) {
@@ -127,6 +143,9 @@ public class SubmissionService {
         this.submissionProcessingRepository = submissionProcessingRepository;
         this.submissionEloadRepository = submissionEloadRepository;
         this.submissionTrackingDetailsRepository = submissionTrackingDetailsRepository;
+        this.submittedAnalysisRepository = submittedAnalysisRepository;
+        this.submittedSampleRepository = submittedSampleRepository;
+        this.submittedVcfRepository = submittedVcfRepository;
         this.globusDirectoryProvisioner = globusDirectoryProvisioner;
         this.mailSender = mailSender;
         this.emailHelper = emailHelper;
@@ -599,6 +618,16 @@ public class SubmissionService {
         return URI.create(value);
     }
 
+    /**
+     * Updates submission tracking details. Only properties included in the tracking details DTOs are updated, this
+     * applies to nested entities as well. Nested entities are identified via their key fields (analysis alias for
+     * SubmittedAnalysis, etc.) which cannot be modified, and nested entities can also be added via new key fields.
+     *
+     * @param submissionId ID of the submission to update
+     * @param trackingDetails DTO specifying updates to make
+     * @return updated tracking details
+     */
+    @Transactional
     public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
         Optional<Submission> submission = submissionRepository.findById(submissionId);
         if (!submission.isPresent()) {
@@ -611,20 +640,135 @@ public class SubmissionService {
             submissionTrackingDetails = new SubmissionTrackingDetails(submissionId);
         }
 
+        // Update submission-level tracking properties
         if (trackingDetails.getReleaseDate() != null) {
             submissionTrackingDetails.setReleaseDate(trackingDetails.getReleaseDate());
         }
         if (trackingDetails.getProjectAccession() != null) {
             submissionTrackingDetails.setProjectAccession(trackingDetails.getProjectAccession());
         }
-        if (trackingDetails.getAnalysisAccessions() != null) {
-            submissionTrackingDetails.setAnalysisAccessions(trackingDetails.getAnalysisAccessions());
+        if (trackingDetails.getProjectTitle() != null) {
+            submissionTrackingDetails.setProjectTitle(trackingDetails.getProjectTitle());
+        }
+        if (trackingDetails.getProjectTaxonomies() != null) {
+            submissionTrackingDetails.setProjectTaxonomies(trackingDetails.getProjectTaxonomies());
+        }
+        if (trackingDetails.getMetadataJsonFile() != null) {
+            submissionTrackingDetails.setMetadataJsonFile(trackingDetails.getMetadataJsonFile());
         }
         if (trackingDetails.getRtLink() != null) {
             submissionTrackingDetails.setRtLink(trackingDetails.getRtLink().toString());
         }
 
+        // Update or add nested analysis objects
+        if (trackingDetails.getAnalyses() != null && !trackingDetails.getAnalyses().isEmpty()) {
+            if (submissionTrackingDetails.getAnalyses() == null) {
+                submissionTrackingDetails.setAnalyses(new ArrayList<>());
+            }
+            for (SubmittedAnalysisDto analysisDto : trackingDetails.getAnalyses()) {
+                String analysisAlias = requiredKey(analysisDto.getAnalysisAlias(), "analysisAlias");
+                SubmittedAnalysis analysis = submittedAnalysisRepository.findById(
+                        new SubmittedAnalysis.SubmittedAnalysisId(submissionId, analysisAlias))
+                        .orElseGet(() -> new SubmittedAnalysis(submissionId, analysisAlias));
+                if (analysisDto.getAnalysisAccession() != null) {
+                    analysis.setAnalysisAccession(analysisDto.getAnalysisAccession());
+                }
+                if (analysisDto.getAggregationType() != null) {
+                    analysis.setAggregationType(analysisDto.getAggregationType());
+                }
+                if (analysisDto.getAssemblyAccession() != null) {
+                    analysis.setAssemblyAccession(analysisDto.getAssemblyAccession());
+                }
+                submittedAnalysisRepository.save(analysis);
+                if (!submissionTrackingDetails.getAnalyses().contains(analysis)) {
+                    submissionTrackingDetails.getAnalyses().add(analysis);
+                }
+                // Update or add nested sample and VCF objects
+                updateSamples(analysis, submissionId, analysisAlias, analysisDto.getSamples());
+                updateVcfs(analysis, submissionId, analysisAlias, analysisDto.getVcfs());
+            }
+        }
+
         return submissionTrackingDetailsRepository.save(submissionTrackingDetails);
     }
 
+    private void updateSamples(SubmittedAnalysis analysis, String submissionId, String analysisAlias,
+                               List<SubmittedSampleDto> sampleDtos) {
+        if (sampleDtos == null || sampleDtos.isEmpty()) {
+            return;
+        }
+        if (analysis.getSamples() == null) {
+            analysis.setSamples(new ArrayList<>());
+        }
+        for (SubmittedSampleDto sampleDto : sampleDtos) {
+            validateKey(sampleDto.getAnalysisAlias(), analysisAlias, "analysisAlias");
+            String sampleName = requiredKey(sampleDto.getSampleName(), "sampleName");
+            SubmittedSample sample = submittedSampleRepository.findById(
+                    new SubmittedSample.SubmittedSampleId(submissionId, analysisAlias, sampleName))
+                    .orElseGet(() -> new SubmittedSample(submissionId, analysisAlias, sampleName));
+            if (sampleDto.getSampleAccession() != null) {
+                sample.setSampleAccession(sampleDto.getSampleAccession());
+            }
+            submittedSampleRepository.save(sample);
+            if (!analysis.getSamples().contains(sample)) {
+                analysis.getSamples().add(sample);
+            }
+        }
+        submittedAnalysisRepository.save(analysis);
+    }
+
+    private void updateVcfs(SubmittedAnalysis analysis, String submissionId, String analysisAlias,
+                            List<SubmittedVcfDto> vcfDtos) {
+        if (vcfDtos == null || vcfDtos.isEmpty()) {
+            return;
+        }
+        if (analysis.getVcfs() == null) {
+            analysis.setVcfs(new ArrayList<>());
+        }
+        for (SubmittedVcfDto vcfDto : vcfDtos) {
+            validateKey(vcfDto.getAnalysisAlias(), analysisAlias, "analysisAlias");
+            String submittedFile = requiredKey(vcfDto.getSubmittedFile(), "submittedFile");
+            SubmittedVcf vcf = submittedVcfRepository.findById(
+                    new SubmittedVcf.SubmittedVcfId(submissionId, analysisAlias, submittedFile))
+                    .orElseGet(() -> new SubmittedVcf(submissionId, analysisAlias, submittedFile));
+            if (vcfDto.getBrokeredFile() != null) {
+                vcf.setBrokeredFile(vcfDto.getBrokeredFile());
+            }
+            if (vcfDto.getCsiFile() != null) {
+                vcf.setCsiFile(vcfDto.getCsiFile());
+            }
+            if (vcfDto.getBrokeredFileMd5() != null) {
+                vcf.setBrokeredFileMd5(vcfDto.getBrokeredFileMd5());
+            }
+            if (vcfDto.getCsiFileMd5() != null) {
+                vcf.setCsiFileMd5(vcfDto.getCsiFileMd5());
+            }
+            submittedVcfRepository.save(vcf);
+            if (!analysis.getVcfs().contains(vcf)) {
+                analysis.getVcfs().add(vcf);
+            }
+        }
+        submittedAnalysisRepository.save(analysis);
+    }
+
+    private String requiredKey(String value, String fieldName) {
+        if (value == null || value.isEmpty()) {
+            throw new InvalidTrackingDetailsException(fieldName + " is required for nested tracking details");
+        }
+        return value;
+    }
+
+    private void validateKey(String suppliedValue, String expectedValue, String fieldName) {
+        if (suppliedValue != null && !suppliedValue.equals(expectedValue)) {
+            throw new InvalidTrackingDetailsException(fieldName + " cannot be changed");
+        }
+    }
+
+    public SubmissionTrackingDetails getTrackingDetails(String submissionId) {
+        return submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+    }
+
+    public void clearTrackingDetails(String submissionId) {
+        submissionTrackingDetailsRepository.deleteBySubmissionId(submissionId);
+    }
 }
