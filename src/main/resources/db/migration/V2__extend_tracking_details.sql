@@ -14,12 +14,11 @@ CREATE TABLE eva_submissions.submitted_analysis (
 
 CREATE TABLE eva_submissions.submitted_sample (
     submission_id VARCHAR(255) NOT NULL,
-    analysis_alias VARCHAR(255) NOT NULL,
     sample_name VARCHAR(255) NOT NULL,
     sample_accession VARCHAR(255),
-    PRIMARY KEY (submission_id, analysis_alias, sample_name),
-    CONSTRAINT fk_submitted_sample_analysis FOREIGN KEY (submission_id, analysis_alias)
-        REFERENCES eva_submissions.submitted_analysis(submission_id, analysis_alias)
+    PRIMARY KEY (submission_id, sample_name),
+    CONSTRAINT fk_submitted_sample_submission FOREIGN KEY (submission_id)
+        REFERENCES eva_submissions.submission(submission_id)
 );
 
 CREATE TABLE eva_submissions.submitted_vcf (
@@ -52,8 +51,8 @@ CREATE TABLE eva_submissions.submitted_analysis_submitted_sample (
     PRIMARY KEY (submission_id, analysis_alias, sample_name),
     CONSTRAINT fk_analysis_sample_analysis FOREIGN KEY (submission_id, analysis_alias)
         REFERENCES eva_submissions.submitted_analysis(submission_id, analysis_alias),
-    CONSTRAINT fk_analysis_sample_sample FOREIGN KEY (submission_id, analysis_alias, sample_name)
-        REFERENCES eva_submissions.submitted_sample(submission_id, analysis_alias, sample_name)
+    CONSTRAINT fk_analysis_sample_sample FOREIGN KEY (submission_id, sample_name)
+        REFERENCES eva_submissions.submitted_sample(submission_id, sample_name)
 );
 
 CREATE TABLE eva_submissions.submitted_analysis_submitted_vcf (

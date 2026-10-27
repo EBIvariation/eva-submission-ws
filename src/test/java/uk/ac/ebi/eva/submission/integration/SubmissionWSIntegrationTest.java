@@ -2137,7 +2137,7 @@ public class SubmissionWSIntegrationTest {
         performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isOk());
 
-        // Assert results: release date updated, project accession unchanged and analysis accessions still unset
+        // Assert results: release date updated, project accession unchanged and analyses still unset
         SubmissionTrackingDetails updatedSubmissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
         assertThat(updatedSubmissionDetails).isNotNull();
         assertThat(updatedSubmissionDetails.getReleaseDate()).isNotNull();
@@ -2172,13 +2172,43 @@ public class SubmissionWSIntegrationTest {
         SubmittedAnalysis analysis = submittedAnalysisRepository.findById(
                 new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
         SubmittedSample savedSample = submittedSampleRepository.findById(
-                new SubmittedSample.SubmittedSampleId(submissionId, "analysis-1", "sample-1")).orElseThrow();
+                new SubmittedSample.SubmittedSampleId(submissionId, "sample-1")).orElseThrow();
         SubmittedVcf savedVcf = submittedVcfRepository.findById(
                 new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz")).orElseThrow();
 
         assertThat(analysis.getAnalysisAccession()).isEqualTo("ERZ456");
         assertThat(savedSample.getSampleAccession()).isEqualTo("SAMEA123");
         assertThat(savedVcf.getBrokeredFile()).isEqualTo("brokered.vcf.gz");
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_linksSampleToMultipleAnalyses() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode root = mapper.createObjectNode();
+        ArrayNode analyses = root.putArray("analyses");
+        String sharedSampleName = "shared-sample";
+        analyses.addObject().put("analysisAlias", "analysis-1")
+                .putArray("samples").addObject()
+                .put("sampleName", sharedSampleName).put("sampleAccession", "SAMEA123");
+        analyses.addObject().put("analysisAlias", "analysis-2")
+                .putArray("samples").addObject()
+                .put("sampleName", sharedSampleName);
+
+        performTrackingUpdate(mapper, root).andExpect(status().isOk());
+        entityManager.flush();
+        entityManager.clear();
+
+        SubmittedAnalysis firstAnalysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        SubmittedAnalysis secondAnalysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-2")).orElseThrow();
+        SubmittedSample sharedSample = submittedSampleRepository.findById(
+                new SubmittedSample.SubmittedSampleId(submissionId, sharedSampleName)).orElseThrow();
+
+        assertThat(firstAnalysis.getSamples()).map(SubmittedSample::getSampleName).containsExactly(sharedSampleName);
+        assertThat(secondAnalysis.getSamples()).map(SubmittedSample::getSampleName).containsExactly(sharedSampleName);
+        assertThat(sharedSample.getSampleAccession()).isEqualTo("SAMEA123");
     }
 
     @Test
@@ -2212,7 +2242,7 @@ public class SubmissionWSIntegrationTest {
         SubmittedAnalysis savedAnalysis = submittedAnalysisRepository.findById(
                 new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
         SubmittedSample savedSample = submittedSampleRepository.findById(
-                new SubmittedSample.SubmittedSampleId(submissionId, "analysis-1", "sample-1")).orElseThrow();
+                new SubmittedSample.SubmittedSampleId(submissionId, "sample-1")).orElseThrow();
         SubmittedVcf savedVcf = submittedVcfRepository.findById(
                 new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz")).orElseThrow();
 
@@ -2242,13 +2272,37 @@ public class SubmissionWSIntegrationTest {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode trackingDetails = mapper.createObjectNode()
                 .put("projectTitle", "Test project");
+        ObjectNode analysis = trackingDetails.putArray("analyses").addObject();
+        analysis.put("analysisAlias", "analysis-1");
+        analysis.put("analysisAccession", "ERZ456");
+        analysis.putArray("samples").addObject()
+                .put("sampleName", "sample-1")
+                .put("sampleAccession", "SAMEA123");
+        analysis.putArray("vcfs").addObject()
+                .put("submittedFile", "input.vcf.gz")
+                .put("brokeredFile", "brokered.vcf.gz");
         performTrackingUpdate(mapper, trackingDetails).andExpect(status().isOk());
 
         mvc.perform(delete("/v1/admin/submission/" + submissionId + "/trackingDetails")
                         .headers(adminHeaders()))
                 .andExpect(status().isNoContent());
 
+        entityManager.flush();
+        entityManager.clear();
+
+        SubmittedAnalysis.SubmittedAnalysisId analysisId =
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1");
+        SubmittedSample.SubmittedSampleId sampleId =
+                new SubmittedSample.SubmittedSampleId(submissionId, "sample-1");
+        SubmittedVcf.SubmittedVcfId vcfId =
+                new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz");
+
+        // Clearing submission details also deletes all nested objects, but not the overall Submission
         assertThat(submissionTrackingDetailsRepository.findBySubmissionId(submissionId)).isNull();
+        assertThat(submittedAnalysisRepository.findById(analysisId)).isEmpty();
+        assertThat(submittedSampleRepository.findById(sampleId)).isEmpty();
+        assertThat(submittedVcfRepository.findById(vcfId)).isEmpty();
+        assertThat(submissionRepository.findBySubmissionId(submissionId)).isNotNull();
     }
 
     @Test

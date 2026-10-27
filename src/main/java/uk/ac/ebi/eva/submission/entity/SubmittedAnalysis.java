@@ -1,10 +1,12 @@
 package uk.ac.ebi.eva.submission.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Column;
@@ -42,7 +44,7 @@ public class SubmittedAnalysis {
     @Column(name = "assembly_accession")
     private String assemblyAccession;
 
-    @OneToMany
+    @OneToMany(cascade = CascadeType.REMOVE)
     @JoinTable(name = "submitted_analysis_submitted_vcf",
             joinColumns = {
                     @JoinColumn(name = "submission_id", insertable = false, updatable = false),
@@ -55,7 +57,7 @@ public class SubmittedAnalysis {
             })
     private List<SubmittedVcf> vcfs;
 
-    @OneToMany
+    @ManyToMany
     @JoinTable(name = "submitted_analysis_submitted_sample",
             joinColumns = {
                     @JoinColumn(name = "submission_id", insertable = false, updatable = false),
@@ -63,7 +65,6 @@ public class SubmittedAnalysis {
             },
             inverseJoinColumns = {
                     @JoinColumn(name = "submission_id", insertable = false, updatable = false),
-                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false),
                     @JoinColumn(name = "sample_name", insertable = false, updatable = false)
             })
     private List<SubmittedSample> samples;

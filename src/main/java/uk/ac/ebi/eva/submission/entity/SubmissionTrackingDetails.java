@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -41,7 +42,7 @@ public class SubmissionTrackingDetails {
     @Column(name = "metadata_json_file", nullable = true)
     private String metadataJsonFile;
 
-    @OneToMany
+    @OneToMany(cascade = CascadeType.REMOVE)
     @JoinTable(name = "submission_submitted_analysis",
             joinColumns = @JoinColumn(name = "submission_id", insertable = false, updatable = false),
             inverseJoinColumns = {

@@ -704,8 +704,8 @@ public class SubmissionService {
             validateKey(sampleDto.getAnalysisAlias(), analysisAlias, "analysisAlias");
             String sampleName = requiredKey(sampleDto.getSampleName(), "sampleName");
             SubmittedSample sample = submittedSampleRepository.findById(
-                    new SubmittedSample.SubmittedSampleId(submissionId, analysisAlias, sampleName))
-                    .orElseGet(() -> new SubmittedSample(submissionId, analysisAlias, sampleName));
+                    new SubmittedSample.SubmittedSampleId(submissionId, sampleName))
+                    .orElseGet(() -> new SubmittedSample(submissionId, sampleName));
             if (sampleDto.getSampleAccession() != null) {
                 sample.setSampleAccession(sampleDto.getSampleAccession());
             }
@@ -770,5 +770,6 @@ public class SubmissionService {
 
     public void clearTrackingDetails(String submissionId) {
         submissionTrackingDetailsRepository.deleteBySubmissionId(submissionId);
+        submittedSampleRepository.deleteOrphanedSamples(submissionId);
     }
 }
