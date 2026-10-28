@@ -57,11 +57,18 @@ CREATE TABLE eva_submissions.submission_processing_status_aud (
     PRIMARY KEY (submission_id, rev)
 );
 
-CREATE SEQUENCE eva_submissions.revinfo_seq;
+CREATE SEQUENCE eva_submissions.revinfo_seq
+    INCREMENT BY 50
+    MINVALUE 1
+    MAXVALUE 9223372036854775807
+    START 1
+    CACHE 1
+    NO CYCLE;
 
 CREATE TABLE eva_submissions.revinfo (
-    rev INTEGER NOT NULL DEFAULT nextval('eva_submissions.revinfo_seq') PRIMARY KEY,
-    revtstmp BIGINT
+    rev int4 NOT NULL,
+    revtstmp int8 NULL,
+    CONSTRAINT revinfo_pkey PRIMARY KEY (rev)
 );
 
 ALTER TABLE eva_submissions.submission_processing_status_aud
