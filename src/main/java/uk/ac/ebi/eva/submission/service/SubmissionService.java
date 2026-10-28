@@ -713,6 +713,12 @@ public class SubmissionService {
             if (!analysis.getSamples().contains(sample)) {
                 analysis.getSamples().add(sample);
             }
+            if (sample.getAnalyses() == null) {
+                sample.setAnalyses(new ArrayList<>());
+            }
+            if (!sample.getAnalyses().contains(analysis)) {
+                sample.getAnalyses().add(analysis);
+            }
         }
         submittedAnalysisRepository.save(analysis);
     }

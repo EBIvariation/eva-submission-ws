@@ -45,14 +45,17 @@ CREATE TABLE eva_submissions.submission_submitted_analysis (
 );
 
 CREATE TABLE eva_submissions.submitted_analysis_submitted_sample (
-    submission_id VARCHAR(255) NOT NULL,
+    analysis_submission_id VARCHAR(255) NOT NULL,
     analysis_alias VARCHAR(255) NOT NULL,
+    sample_submission_id VARCHAR(255) NOT NULL,
     sample_name VARCHAR(255) NOT NULL,
-    PRIMARY KEY (submission_id, analysis_alias, sample_name),
-    CONSTRAINT fk_analysis_sample_analysis FOREIGN KEY (submission_id, analysis_alias)
+    PRIMARY KEY (analysis_submission_id, analysis_alias, sample_submission_id, sample_name),
+    CONSTRAINT fk_analysis_sample_analysis FOREIGN KEY (analysis_submission_id, analysis_alias)
         REFERENCES eva_submissions.submitted_analysis(submission_id, analysis_alias),
-    CONSTRAINT fk_analysis_sample_sample FOREIGN KEY (submission_id, sample_name)
-        REFERENCES eva_submissions.submitted_sample(submission_id, sample_name)
+    CONSTRAINT fk_analysis_sample_sample FOREIGN KEY (sample_submission_id, sample_name)
+        REFERENCES eva_submissions.submitted_sample(submission_id, sample_name),
+    CONSTRAINT chk_analysis_sample_submission_match
+        CHECK (analysis_submission_id = sample_submission_id)
 );
 
 CREATE TABLE eva_submissions.submitted_analysis_submitted_vcf (

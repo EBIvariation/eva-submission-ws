@@ -4,8 +4,11 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
 
 @Entity
@@ -19,6 +22,7 @@ public class SubmittedSample {
     public SubmittedSample(String submissionId, String sampleName) {
         this.submissionId = submissionId;
         this.sampleName = sampleName;
+        this.analyses = new ArrayList<>();
     }
 
     @Id
@@ -31,6 +35,9 @@ public class SubmittedSample {
 
     @Column(name = "sample_accession")
     private String sampleAccession;
+
+    @ManyToMany(mappedBy = "samples")
+    private List<SubmittedAnalysis> analyses;
 
     public static final class SubmittedSampleId {
 
@@ -83,5 +90,13 @@ public class SubmittedSample {
 
     public void setSampleAccession(String sampleAccession) {
         this.sampleAccession = sampleAccession;
+    }
+
+    public List<SubmittedAnalysis> getAnalyses() {
+        return analyses;
+    }
+
+    public void setAnalyses(List<SubmittedAnalysis> analyses) {
+        this.analyses = analyses;
     }
 }

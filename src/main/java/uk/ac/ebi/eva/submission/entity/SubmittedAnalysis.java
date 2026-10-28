@@ -60,12 +60,12 @@ public class SubmittedAnalysis {
     @ManyToMany
     @JoinTable(name = "submitted_analysis_submitted_sample",
             joinColumns = {
-                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
-                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false)
+                    @JoinColumn(name = "analysis_submission_id", referencedColumnName = "submission_id"),
+                    @JoinColumn(name = "analysis_alias", referencedColumnName = "analysis_alias")
             },
             inverseJoinColumns = {
-                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
-                    @JoinColumn(name = "sample_name", insertable = false, updatable = false)
+                    @JoinColumn(name = "sample_submission_id", referencedColumnName = "submission_id"),
+                    @JoinColumn(name = "sample_name", referencedColumnName = "sample_name")
             })
     private List<SubmittedSample> samples;
 

@@ -13,7 +13,7 @@ public interface SubmittedSampleRepository extends CrudRepository<SubmittedSampl
     @Transactional
     @Query(value = "DELETE FROM eva_submissions.submitted_sample s WHERE s.submission_id = :submissionId " +
             "AND NOT EXISTS (SELECT 1 FROM eva_submissions.submitted_analysis_submitted_sample sass " +
-            "WHERE sass.submission_id = s.submission_id AND sass.sample_name = s.sample_name)",
+            "WHERE sass.sample_submission_id = s.submission_id AND sass.sample_name = s.sample_name)",
             nativeQuery = true)
     int deleteOrphanedSamples(@Param("submissionId") String submissionId);
 
