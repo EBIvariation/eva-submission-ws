@@ -1,11 +1,12 @@
 package uk.ac.ebi.eva.submission.entity;
 
-import jakarta.persistence.CollectionTable;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrimaryKeyJoinColumn;
 import jakarta.persistence.Table;
@@ -31,10 +32,24 @@ public class SubmissionTrackingDetails {
     @Column(name = "project_accession", nullable = true)
     private String projectAccession;
 
-    @ElementCollection
-    @CollectionTable(joinColumns = @JoinColumn(name = "submission_id"))
-    @Column(name = "analysis_accessions", nullable = true)
-    private List<String> analysisAccessions;
+    @Column(name = "project_title", nullable = true)
+    private String projectTitle;
+
+    // String type to support comma-separated list of taxonomies
+    @Column(name = "project_taxonomies", nullable = true)
+    private String projectTaxonomies;
+
+    @Column(name = "metadata_json_file", nullable = true)
+    private String metadataJsonFile;
+
+    @OneToMany(cascade = CascadeType.REMOVE)
+    @JoinTable(name = "submission_submitted_analysis",
+            joinColumns = @JoinColumn(name = "submission_id", insertable = false, updatable = false),
+            inverseJoinColumns = {
+                    @JoinColumn(name = "submission_id", insertable = false, updatable = false),
+                    @JoinColumn(name = "analysis_alias", insertable = false, updatable = false)
+            })
+    private List<SubmittedAnalysis> analyses;
 
     @Column(name = "rt_link", nullable = true)
     private String rtLink;
@@ -66,20 +81,44 @@ public class SubmissionTrackingDetails {
         this.releaseDate = releaseDate;
     }
 
-    public List<String> getAnalysisAccessions() {
-        return analysisAccessions;
-    }
-
-    public void setAnalysisAccessions(List<String> analysisAccessions) {
-        this.analysisAccessions = analysisAccessions;
-    }
-
     public String getProjectAccession() {
         return projectAccession;
     }
 
     public void setProjectAccession(String projectAccession) {
         this.projectAccession = projectAccession;
+    }
+
+    public String getProjectTitle() {
+        return projectTitle;
+    }
+
+    public void setProjectTitle(String projectTitle) {
+        this.projectTitle = projectTitle;
+    }
+
+    public String getProjectTaxonomies() {
+        return projectTaxonomies;
+    }
+
+    public void setProjectTaxonomies(String projectTaxonomies) {
+        this.projectTaxonomies = projectTaxonomies;
+    }
+
+    public String getMetadataJsonFile() {
+        return metadataJsonFile;
+    }
+
+    public void setMetadataJsonFile(String metadataJsonFile) {
+        this.metadataJsonFile = metadataJsonFile;
+    }
+
+    public List<SubmittedAnalysis> getAnalyses() {
+        return analyses;
+    }
+
+    public void setAnalyses(List<SubmittedAnalysis> analyses) {
+        this.analyses = analyses;
     }
 
     public String getRtLink() {
