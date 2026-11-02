@@ -628,7 +628,7 @@ public class SubmissionService {
      * @return updated tracking details
      */
     @Transactional
-    public SubmissionTrackingDetails updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
+    public SubmissionTrackingDetailsDto updateTrackingDetails(String submissionId, SubmissionTrackingDetailsDto trackingDetails) {
         Optional<Submission> submission = submissionRepository.findById(submissionId);
         if (!submission.isPresent()) {
             throw new SubmissionDoesNotExistException(submissionId);
@@ -689,7 +689,7 @@ public class SubmissionService {
             }
         }
 
-        return submissionTrackingDetailsRepository.save(submissionTrackingDetails);
+        return convertToTrackingDetailsDto(submissionTrackingDetailsRepository.save(submissionTrackingDetails));
     }
 
     private void updateSamples(SubmittedAnalysis analysis, String submissionId, String analysisAlias,
@@ -770,8 +770,55 @@ public class SubmissionService {
         }
     }
 
-    public SubmissionTrackingDetails getTrackingDetails(String submissionId) {
-        return submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+    public SubmissionTrackingDetailsDto getTrackingDetails(String submissionId) {
+        Optional<Submission> submission = submissionRepository.findById(submissionId);
+        if (!submission.isPresent()) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
+        SubmissionTrackingDetails details = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+        return details == null ? null : convertToTrackingDetailsDto(details);
+    }
+
+    private SubmissionTrackingDetailsDto convertToTrackingDetailsDto(SubmissionTrackingDetails details) {
+        SubmissionTrackingDetailsDto dto = new SubmissionTrackingDetailsDto();
+        dto.setReleaseDate(details.getReleaseDate());
+        dto.setProjectAccession(details.getProjectAccession());
+        dto.setProjectTitle(details.getProjectTitle());
+        dto.setProjectTaxonomies(details.getProjectTaxonomies());
+        dto.setMetadataJsonFile(details.getMetadataJsonFile());
+        dto.setRtLink(details.getRtLink() == null ? null : URI.create(details.getRtLink()));
+        if (details.getAnalyses() != null) {
+            dto.setAnalyses(details.getAnalyses().stream().map(analysis -> {
+                SubmittedAnalysisDto analysisDto = new SubmittedAnalysisDto();
+                analysisDto.setAnalysisAlias(analysis.getAnalysisAlias());
+                analysisDto.setAnalysisAccession(analysis.getAnalysisAccession());
+                analysisDto.setAggregationType(analysis.getAggregationType());
+                analysisDto.setAssemblyAccession(analysis.getAssemblyAccession());
+                if (analysis.getSamples() != null) {
+                    analysisDto.setSamples(analysis.getSamples().stream().map(sample -> {
+                        SubmittedSampleDto sampleDto = new SubmittedSampleDto();
+                        sampleDto.setAnalysisAlias(analysis.getAnalysisAlias());
+                        sampleDto.setSampleName(sample.getSampleName());
+                        sampleDto.setSampleAccession(sample.getSampleAccession());
+                        return sampleDto;
+                    }).collect(Collectors.toList()));
+                }
+                if (analysis.getVcfs() != null) {
+                    analysisDto.setVcfs(analysis.getVcfs().stream().map(vcf -> {
+                        SubmittedVcfDto vcfDto = new SubmittedVcfDto();
+                        vcfDto.setAnalysisAlias(vcf.getAnalysisAlias());
+                        vcfDto.setSubmittedFile(vcf.getSubmittedFile());
+                        vcfDto.setBrokeredFile(vcf.getBrokeredFile());
+                        vcfDto.setCsiFile(vcf.getCsiFile());
+                        vcfDto.setBrokeredFileMd5(vcf.getBrokeredFileMd5());
+                        vcfDto.setCsiFileMd5(vcf.getCsiFileMd5());
+                        return vcfDto;
+                    }).collect(Collectors.toList()));
+                }
+                return analysisDto;
+            }).collect(Collectors.toList()));
+        }
+        return dto;
     }
 
     public void clearTrackingDetails(String submissionId) {
