@@ -125,67 +125,14 @@ public class SubmissionController extends BaseController {
                                                     @PathVariable("submissionId") String submissionId,
                                                     @RequestBody JsonNode metadataJson) {
         logger.info("Mark submission uploaded endpoint called for submissionId: {}", submissionId);
-        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
-        if (Objects.isNull(submissionAccount)) {
-            logger.warn("Mark submission uploaded failed for submissionId {}: authentication unsuccessful", submissionId);
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
-        }
-        if (!submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
-            logger.warn("Mark submission uploaded failed for submissionId {}: user {} does not have access to this submission",
-                    submissionId, submissionAccount.getId());
-            return new ResponseEntity<>("Unauthorized: Account " + submissionAccount.getId() +
-                    " does not have access to submissionId " + submissionId, HttpStatus.UNAUTHORIZED);
-        }
-        logger.info("Mark submission uploaded: authenticated user {} for submissionId {}", submissionAccount.getId(), submissionId);
-
-        String submissionStatus = submissionService.getSubmissionStatus(submissionId);
-        if (!Objects.equals(submissionStatus, SubmissionStatus.OPEN.toString())) {
-            return new ResponseEntity<>(
-                    "Submission " + submissionId + " is not in status " + SubmissionStatus.OPEN +
-                            ". It cannot be marked as " + SubmissionStatus.UPLOADED +
-                            ". Current Status: " + submissionStatus,
-                    HttpStatus.BAD_REQUEST);
-        }
         try {
-            // check if the User is using a deprecated version of eva-sub-cli
-            boolean deprecatedVersion = true;
-            String version = submissionService.getVersionFromMetadataJson(metadataJson);
-            if (version != null && Utils.compareVersions(version, DEPRECATED_VERSION) > 0) {
-                deprecatedVersion = false;
-            } else {
-                if (version == null || version.isEmpty()) {
-                    version = "< " + UNSUPPORTED_VERSION;
-                }
-                throw new UnsupportedVersionException(version);
-            }
-            // check if there is a difference between the files uploaded and files mentioned in metadata
-            submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
-
-            // check if all the required parameters are present/provided
-            Map<String, String> projectDetails = submissionService.checkAllRequiredParametersProvided(metadataJson);
-
-            String projectTitle = projectDetails.get(TITLE);
-            String projectDescription = projectDetails.get(DESCRIPTION);
-            String projectTaxonomy = projectDetails.get(TAXONOMY_ID);
-
-            // save submission details along with metadata
-            Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId,
-                    projectTitle, projectDescription, metadataJson);
-
-            // check if consent statement is required
-            ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
-            boolean isHuman = submissionService.isHumanDataInSubmission(metadataJson, projectTaxonomy);
-            boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(isHuman, analysisNode);
-
-            // send notification to user
-            submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
-                    SubmissionStatus.UPLOADED, needConsentStatement, deprecatedVersion, true);
-            // send notification to EVA HelpDesk
-            submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
-                    projectTitle);
-
+            Submission submission = doSubmission(bearerToken, submissionId, metadataJson);
             return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
-        } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException | UnsupportedVersionException ex) {
+        } catch (UnauthorizedException ex) {
+            logger.warn("Mark submission uploaded failed for submissionId {}: {}", submissionId, ex.getMessage());
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.UNAUTHORIZED);
+        } catch (InvalidSubmissionStatusException | RequiredFieldsMissingException |
+                 MetadataFileInfoMismatchException | UnsupportedVersionException ex) {
             logger.error("Error occurred while processing the submission.", ex);
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
@@ -194,7 +141,6 @@ public class SubmissionController extends BaseController {
         }
     }
 
-    // TODO update this
     @Operation(summary = "Given a submission id, this endpoint will mark the submission as uploaded by MARS")
     @Parameters({
             @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
@@ -232,10 +178,10 @@ public class SubmissionController extends BaseController {
         }
     }
 
-    // TODO rewrite this
     private Submission doSubmission(String bearerToken, String submissionId, JsonNode metadataJson) {
         SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
-        if (Objects.isNull(submissionAccount) || !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
+        if (Objects.isNull(submissionAccount) ||
+                !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
             throw new UnauthorizedException("Unauthorized");
         }
 
@@ -247,27 +193,36 @@ public class SubmissionController extends BaseController {
                             ". Current Status: " + submissionStatus);
         }
 
-        // check if there is a difference between the files uploaded and files mentioned in metadata
+        boolean deprecatedVersion = true;
+        String version = submissionService.getVersionFromMetadataJson(metadataJson);
+        if (version != null && Utils.compareVersions(version, DEPRECATED_VERSION) > 0) {
+            deprecatedVersion = false;
+        } else {
+            if (version == null || version.isEmpty()) {
+                version = "< " + UNSUPPORTED_VERSION;
+            }
+            throw new UnsupportedVersionException(version);
+        }
+
         submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
 
         // check if all the required parameters are present/provided
         Map<String, String> projectDetails = submissionService.checkAllRequiredParametersProvided(metadataJson);
-
         String projectTitle = projectDetails.get(TITLE);
         String projectDescription = projectDetails.get(DESCRIPTION);
         String projectTaxonomy = projectDetails.get(TAXONOMY_ID);
 
-        // save submission details along with metadata
-        Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId,
+        Submission submission = submissionService.uploadMetadataJsonAndMarkUploaded(submissionId,
                 projectTitle, projectDescription, metadataJson);
 
         // check if consent statement is required
         ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
-        boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(Integer.parseInt(projectTaxonomy), analysisNode);
+        boolean isHuman = submissionService.isHumanDataInSubmission(metadataJson, projectTaxonomy);
+        boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(isHuman, analysisNode);
 
         // send notification to user
         submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
-                SubmissionStatus.UPLOADED, needConsentStatement, true);
+                SubmissionStatus.UPLOADED, needConsentStatement, deprecatedVersion, true);
         // send notification to EVA HelpDesk
         submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
                 projectTitle);
