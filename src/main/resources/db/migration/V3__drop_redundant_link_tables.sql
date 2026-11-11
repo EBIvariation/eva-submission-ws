@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS eva_submissions.submission_submitted_analysis;
+DROP TABLE IF EXISTS eva_submissions.submitted_analysis_submitted_vcf;

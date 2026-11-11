@@ -822,6 +822,9 @@ public class SubmissionService {
     }
 
     public void clearTrackingDetails(String submissionId) {
+        if (!submissionRepository.findById(submissionId).isPresent()) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
         submissionTrackingDetailsRepository.deleteBySubmissionId(submissionId);
         submittedSampleRepository.deleteOrphanedSamples(submissionId);
     }
