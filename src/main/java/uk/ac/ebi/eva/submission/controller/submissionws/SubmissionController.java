@@ -3,6 +3,8 @@ package uk.ac.ebi.eva.submission.controller.submissionws;
 import com.elixir.mars.repository.MarsReceiptException;
 import com.elixir.mars.repository.models.isa.IsaJson;
 import com.elixir.mars.repository.models.receipt.MarsReceipt;
+import com.elixir.mars.repository.models.receipt.MarsFtpCredentials;
+import com.elixir.mars.repository.models.receipt.MarsInitiateResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.swagger.v3.oas.annotations.Operation;
@@ -141,28 +143,6 @@ public class SubmissionController extends BaseController {
         }
     }
 
-    @Operation(summary = "Given a submission id, this endpoint will mark the submission as uploaded by MARS")
-    @Parameters({
-            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
-                    required = true, in = ParameterIn.HEADER),
-            @Parameter(name = "submissionId", description = "Id of the submission being marked as uploaded",
-                    required = true, in = ParameterIn.PATH)
-    })
-    @PutMapping("submission/{submissionId}/uploadedByMars")
-    public MarsReceipt markSubmissionUploadedByMars(@RequestHeader("Authorization") String bearerToken,
-                                                    @PathVariable("submissionId") String submissionId,
-                                                    @RequestBody IsaJson marsIsaJson) {
-        try {
-            JsonNode evaMetadataJson = marsConversionService.convertMarsToEvaJson(marsIsaJson);
-            Submission submission = doSubmission(bearerToken, submissionId, evaMetadataJson);
-            return marsConversionService.buildMarsSuccessfulReceipt(submission);
-        } catch (MarsReceiptException ex) {
-            return marsConversionService.buildMarsFailedReceipt(ex);
-        } catch (Exception ex) {
-            return marsConversionService.buildMarsFailedReceipt(ex.getMessage());
-        }
-    }
-
     @Operation(summary = "Given a submission id, this endpoint retrieves the current status of the submission")
     @Parameters({
             @Parameter(name = "submissionId", description = "Id of the submission whose status needs to be retrieved",
@@ -175,6 +155,52 @@ public class SubmissionController extends BaseController {
             return new ResponseEntity<>(submissionStatus, HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
+
+    @Operation(summary = "This endpoint marks the initiation of a MARS submission.")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
+                    required = true, in = ParameterIn.HEADER)
+    })
+    @PostMapping("mars/initiate")
+    public ResponseEntity<?> initiateMarsSubmission(@RequestHeader("Authorization") String bearerToken) {
+        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
+        if (Objects.isNull(submissionAccount)) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        Submission submission = this.submissionService.initiateSubmission(submissionAccount);
+        MarsFtpCredentials ftpCredentials = MarsFtpCredentials.builder()
+                // TODO Globus API endpoint
+                .uploadPath(submission.getUploadUrl())
+                .build();
+        MarsInitiateResponse response = MarsInitiateResponse.builder()
+                .submissionId(submission.getSubmissionId())
+                .ftpCredentials(ftpCredentials)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @Operation(summary = "This endpoint will mark the submission as uploaded by MARS")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
+                    required = true, in = ParameterIn.HEADER)
+    })
+    @PostMapping("mars/submit")
+    public MarsReceipt submitMarsSubmission(@RequestHeader("Authorization") String bearerToken,
+                                            @RequestBody IsaJson marsIsaJson) {
+        try {
+            String submissionId = marsConversionService.getSubmissionId(marsIsaJson);
+            // TODO check the submission status - if it's OPEN do the submission and return a pending receipt
+            //  If it's completed, return a successful or error receipt as required.
+            JsonNode evaMetadataJson = marsConversionService.convertMarsToEvaJson(marsIsaJson);
+            Submission submission = doSubmission(bearerToken, submissionId, evaMetadataJson);
+            return marsConversionService.buildMarsPendingReceipt(submission);
+        } catch (MarsReceiptException ex) {
+            return marsConversionService.buildMarsFailedReceipt(ex);
+        } catch (Exception ex) {
+            return marsConversionService.buildMarsFailedReceipt(ex.getMessage());
         }
     }
 

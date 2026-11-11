@@ -1,5 +1,6 @@
 package uk.ac.ebi.eva.submission.service;
 
+import com.elixir.mars.repository.IsaJsonGraphLookup;
 import com.elixir.mars.repository.MarsReceiptException;
 import com.elixir.mars.repository.MarsReceiptProvider;
 import com.elixir.mars.repository.ReceiptAccessionsMap;
@@ -26,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import uk.ac.ebi.eva.submission.entity.Submission;
+import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
 import uk.ac.ebi.eva.submission.model.metadata.Analysis;
 import uk.ac.ebi.eva.submission.model.metadata.EvaMetadata;
 import uk.ac.ebi.eva.submission.model.metadata.ExperimentType;
@@ -47,6 +49,8 @@ public class MarsConversionService extends MarsReceiptProvider {
     private ReceiptAccessionsMap studyAccessionMap;
     private ReceiptAccessionsMap analysisAccessionMap;
 
+    private static final String REPOSITORY_ID = "eva";
+
     // Names of Comments and Parameters - must be kept in sync with ISA-JSON producer
     private static final String TAXONOMY_ID_KEY = "taxonomyId";
     private static final String CENTRE_KEY = "centre";
@@ -61,7 +65,7 @@ public class MarsConversionService extends MarsReceiptProvider {
     private static final String SAMPLE_ACCESSION_KEY = "accession";
 
     public MarsConversionService() {
-        super("eva");
+        super(REPOSITORY_ID);
         studyAccessionMap = new ReceiptAccessionsMap();
         analysisAccessionMap = new ReceiptAccessionsMap();
     }
@@ -70,7 +74,7 @@ public class MarsConversionService extends MarsReceiptProvider {
         EvaMetadata evaMetadata = new EvaMetadata();
 
         // Assume single study
-        Study study = marsIsaJson.getInvestigation().getStudies().get(0);
+        Study study = marsIsaJson.getStudies().getFirst();
 
         // Study level maps to help find entities by ID
         Map<String, List<Parameter>> protocolParamsMap = new HashMap<>();
@@ -224,8 +228,13 @@ public class MarsConversionService extends MarsReceiptProvider {
         return null;
     }
 
-    public MarsReceipt buildMarsSuccessfulReceipt(Submission submission) {
-        // TODO provide submission ID in receipt
+    public MarsReceipt buildMarsPendingReceipt(Submission submission) {
+        // TODO
+        return null;
+    }
+
+    public MarsReceipt buildMarsSuccessfulReceipt(SubmissionTrackingDetails trackingDetails, IsaJson isaJson) {
+        // TODO
         return null;
     }
 
@@ -242,5 +251,9 @@ public class MarsConversionService extends MarsReceiptProvider {
     @Override
     public String convertMarsReceiptToJson() {
         throw new UnsupportedOperationException("Not supported");
+    }
+
+    public String getSubmissionId(IsaJson marsIsaJson) {
+        return IsaJsonGraphLookup.findSubmissionId(marsIsaJson, REPOSITORY_ID);
     }
 }
