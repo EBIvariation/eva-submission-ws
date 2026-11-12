@@ -1,5 +1,10 @@
 package uk.ac.ebi.eva.submission.controller.submissionws;
 
+import com.elixir.mars.repository.MarsReceiptException;
+import com.elixir.mars.repository.models.isa.IsaJson;
+import com.elixir.mars.repository.models.receipt.MarsReceipt;
+import com.elixir.mars.repository.models.receipt.MarsFtpCredentials;
+import com.elixir.mars.repository.models.receipt.MarsInitiateResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,12 +27,19 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
+import uk.ac.ebi.eva.submission.exception.InvalidSubmissionStatusException;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.exception.UnsupportedVersionException;
+import uk.ac.ebi.eva.submission.exception.UnauthorizedException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
+import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
+import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
+import uk.ac.ebi.eva.submission.service.MarsAdapter;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 import uk.ac.ebi.eva.submission.util.Utils;
@@ -59,13 +71,20 @@ public class SubmissionController extends BaseController {
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
     private final LsriTokenService lsriTokenService;
+    private final MarsAdapter marsAdapter;
+    private final SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
+    private final SubmissionProcessingRepository submissionProcessingRepository;
 
     public SubmissionController(SubmissionService submissionService, WebinTokenService webinTokenService,
-                                LsriTokenService lsriTokenService) {
+                                LsriTokenService lsriTokenService, MarsAdapter marsAdapter, SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository,
+                                SubmissionProcessingRepository submissionProcessingRepository) {
         super(webinTokenService, lsriTokenService);
         this.submissionService = submissionService;
         this.webinTokenService = webinTokenService;
         this.lsriTokenService = lsriTokenService;
+        this.marsAdapter = marsAdapter;
+        this.submissionTrackingDetailsRepository = submissionTrackingDetailsRepository;
+        this.submissionProcessingRepository = submissionProcessingRepository;
     }
 
     @Operation(summary = "This endpoint authenticates a user with LSRI")
@@ -117,67 +136,14 @@ public class SubmissionController extends BaseController {
                                                     @PathVariable("submissionId") String submissionId,
                                                     @RequestBody JsonNode metadataJson) {
         logger.info("Mark submission uploaded endpoint called for submissionId: {}", submissionId);
-        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
-        if (Objects.isNull(submissionAccount)) {
-            logger.warn("Mark submission uploaded failed for submissionId {}: authentication unsuccessful", submissionId);
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
-        }
-        if (!submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
-            logger.warn("Mark submission uploaded failed for submissionId {}: user {} does not have access to this submission",
-                    submissionId, submissionAccount.getId());
-            return new ResponseEntity<>("Unauthorized: Account " + submissionAccount.getId() +
-                    " does not have access to submissionId " + submissionId, HttpStatus.UNAUTHORIZED);
-        }
-        logger.info("Mark submission uploaded: authenticated user {} for submissionId {}", submissionAccount.getId(), submissionId);
-
-        String submissionStatus = submissionService.getSubmissionStatus(submissionId);
-        if (!Objects.equals(submissionStatus, SubmissionStatus.OPEN.toString())) {
-            return new ResponseEntity<>(
-                    "Submission " + submissionId + " is not in status " + SubmissionStatus.OPEN +
-                            ". It cannot be marked as " + SubmissionStatus.UPLOADED +
-                            ". Current Status: " + submissionStatus,
-                    HttpStatus.BAD_REQUEST);
-        }
         try {
-            // check if the User is using a deprecated version of eva-sub-cli
-            boolean deprecatedVersion = true;
-            String version = submissionService.getVersionFromMetadataJson(metadataJson);
-            if (version != null && Utils.compareVersions(version, DEPRECATED_VERSION) > 0) {
-                deprecatedVersion = false;
-            } else {
-                if (version == null || version.isEmpty()) {
-                    version = "< " + UNSUPPORTED_VERSION;
-                }
-                throw new UnsupportedVersionException(version);
-            }
-            // check if there is a difference between the files uploaded and files mentioned in metadata
-            submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
-
-            // check if all the required parameters are present/provided
-            Map<String, String> projectDetails = submissionService.checkAllRequiredParametersProvided(metadataJson);
-
-            String projectTitle = projectDetails.get(TITLE);
-            String projectDescription = projectDetails.get(DESCRIPTION);
-            String projectTaxonomy = projectDetails.get(TAXONOMY_ID);
-
-            // save submission details along with metadata
-            Submission submission = this.submissionService.uploadMetadataJsonAndMarkUploaded(submissionId,
-                    projectTitle, projectDescription, metadataJson);
-
-            // check if consent statement is required
-            ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
-            boolean isHuman = submissionService.isHumanDataInSubmission(metadataJson, projectTaxonomy);
-            boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(isHuman, analysisNode);
-
-            // send notification to user
-            submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
-                    SubmissionStatus.UPLOADED, needConsentStatement, deprecatedVersion, true);
-            // send notification to EVA HelpDesk
-            submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
-                    projectTitle);
-
+            Submission submission = doSubmission(bearerToken, submissionId, metadataJson);
             return new ResponseEntity<>(stripUserDetails(submission), HttpStatus.OK);
-        } catch (RequiredFieldsMissingException | MetadataFileInfoMismatchException | UnsupportedVersionException ex) {
+        } catch (UnauthorizedException ex) {
+            logger.warn("Mark submission uploaded failed for submissionId {}: {}", submissionId, ex.getMessage());
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.UNAUTHORIZED);
+        } catch (InvalidSubmissionStatusException | RequiredFieldsMissingException |
+                 MetadataFileInfoMismatchException | UnsupportedVersionException ex) {
             logger.error("Error occurred while processing the submission.", ex);
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
@@ -199,6 +165,138 @@ public class SubmissionController extends BaseController {
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
+    }
+
+
+    @Operation(summary = "This endpoint marks the initiation of a MARS submission.")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
+                    required = true, in = ParameterIn.HEADER)
+    })
+    @PostMapping("mars/initiate")
+    public ResponseEntity<?> initiateMarsSubmission(@RequestHeader("Authorization") String bearerToken,
+                                                    @RequestBody IsaJson marsIsaJson) {
+        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
+        if (Objects.isNull(submissionAccount)) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        String submissionId = marsAdapter.getSubmissionId(marsIsaJson);
+        Submission submission = submissionId == null ? null : submissionService.getSubmission(submissionId);
+        if (submission == null) {
+            submission = submissionService.initiateSubmission(submissionAccount);
+        } else if (!submission.getSubmissionAccount().getId().equals(submissionAccount.getId())) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        MarsFtpCredentials ftpCredentials = MarsFtpCredentials.builder()
+                .uploadPath(submission.getUploadUrl())
+                .build();
+        MarsInitiateResponse response = MarsInitiateResponse.builder()
+                .submissionId(submission.getSubmissionId())
+                .ftpCredentials(ftpCredentials)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @Operation(summary = "This endpoint will mark the submission as uploaded by MARS")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "Token (bearerToken) for authenticating the user",
+                    required = true, in = ParameterIn.HEADER)
+    })
+    @PostMapping("mars/submit")
+    public MarsReceipt submitMarsSubmission(@RequestHeader("Authorization") String bearerToken,
+                                            @RequestBody IsaJson marsIsaJson) {
+        try {
+            String submissionId = marsAdapter.getSubmissionId(marsIsaJson);
+
+            // Do the submission and/or return the appropriate receipt, based on the submission status
+            String submissionStatus = submissionService.getSubmissionStatus(submissionId);
+            SubmissionStatus status;
+            try {
+                status = SubmissionStatus.valueOf(submissionStatus);
+            } catch (IllegalArgumentException e) {
+                return marsAdapter.buildMarsFailedReceipt("Invalid submission status");
+            }
+            switch (status) {
+                case SubmissionStatus.OPEN:
+                    JsonNode evaMetadataJson = marsAdapter.convertMarsToEvaJson(marsIsaJson);
+                    Submission submission = doSubmission(bearerToken, submissionId, evaMetadataJson);
+                    return marsAdapter.buildMarsPendingReceipt();
+                case SubmissionStatus.UPLOADED:
+                    return marsAdapter.buildMarsPendingReceipt();
+                case SubmissionStatus.PROCESSING:
+                    SubmissionProcessingStep step = SubmissionProcessingStep.valueOf(
+                            submissionProcessingRepository.findBySubmissionId(submissionId).getStep());
+                    return switch (step) {
+                        case VALIDATION, BROKERING -> marsAdapter.buildMarsPendingReceipt();
+                        case INGESTION -> {
+                            SubmissionTrackingDetails processingDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+                            yield marsAdapter.buildMarsSuccessfulReceipt(processingDetails, marsIsaJson);
+                        }
+                    };
+                case SubmissionStatus.ON_HOLD:
+                case SubmissionStatus.COMPLETED:
+                    SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+                    return marsAdapter.buildMarsSuccessfulReceipt(submissionDetails, marsIsaJson);
+                default:
+                    return marsAdapter.buildMarsFailedReceipt("Submission failed");
+            }
+        } catch (MarsReceiptException ex) {
+            return marsAdapter.buildMarsFailedReceipt(ex);
+        } catch (Exception ex) {
+            return marsAdapter.buildMarsFailedReceipt(ex.getMessage());
+        }
+    }
+
+    private Submission doSubmission(String bearerToken, String submissionId, JsonNode metadataJson) {
+        SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
+        if (Objects.isNull(submissionAccount) ||
+                !submissionService.checkUserHasAccessToSubmission(submissionAccount, submissionId)) {
+            throw new UnauthorizedException("Unauthorized");
+        }
+
+        String submissionStatus = submissionService.getSubmissionStatus(submissionId);
+        if (!Objects.equals(submissionStatus, SubmissionStatus.OPEN.toString())) {
+            throw new InvalidSubmissionStatusException(
+                    "Submission " + submissionId + " is not in status " + SubmissionStatus.OPEN +
+                            ". It cannot be marked as " + SubmissionStatus.UPLOADED +
+                            ". Current Status: " + submissionStatus);
+        }
+
+        boolean deprecatedVersion = true;
+        String version = submissionService.getVersionFromMetadataJson(metadataJson);
+        if (version != null && Utils.compareVersions(version, DEPRECATED_VERSION) > 0) {
+            deprecatedVersion = false;
+        } else {
+            if (version == null || version.isEmpty()) {
+                version = "< " + UNSUPPORTED_VERSION;
+            }
+            throw new UnsupportedVersionException(version);
+        }
+
+        submissionService.checkMetadataFileInfoMatchesWithUploadedFiles(submissionAccount, submissionId, metadataJson);
+
+        // check if all the required parameters are present/provided
+        Map<String, String> projectDetails = submissionService.checkAllRequiredParametersProvided(metadataJson);
+        String projectTitle = projectDetails.get(TITLE);
+        String projectDescription = projectDetails.get(DESCRIPTION);
+        String projectTaxonomy = projectDetails.get(TAXONOMY_ID);
+
+        Submission submission = submissionService.uploadMetadataJsonAndMarkUploaded(submissionId,
+                projectTitle, projectDescription, metadataJson);
+
+        // check if consent statement is required
+        ArrayNode analysisNode = (ArrayNode) metadataJson.get(ANALYSIS);
+        boolean isHuman = submissionService.isHumanDataInSubmission(metadataJson, projectTaxonomy);
+        boolean needConsentStatement = checkConsentStatementIsNeededForTheSubmission(isHuman, analysisNode);
+
+        // send notification to user
+        submissionService.sendMailNotificationToUserForStatusUpdate(submissionAccount, submissionId, projectTitle,
+                SubmissionStatus.UPLOADED, needConsentStatement, deprecatedVersion, true);
+        // send notification to EVA HelpDesk
+        submissionService.sendMailNotificationToEVAHelpdeskForSubmissionUploaded(submissionAccount, submissionId,
+                projectTitle);
+
+        return submission;
     }
 
     private boolean checkConsentStatementIsNeededForTheSubmission(boolean isHuman, ArrayNode analysisNode) {
