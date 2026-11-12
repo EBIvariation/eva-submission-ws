@@ -35,6 +35,8 @@ import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.exception.UnsupportedVersionException;
 import uk.ac.ebi.eva.submission.exception.UnauthorizedException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
+import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
+import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.MarsAdapter;
@@ -71,15 +73,18 @@ public class SubmissionController extends BaseController {
     private final LsriTokenService lsriTokenService;
     private final MarsAdapter marsAdapter;
     private final SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
+    private final SubmissionProcessingRepository submissionProcessingRepository;
 
     public SubmissionController(SubmissionService submissionService, WebinTokenService webinTokenService,
-                                LsriTokenService lsriTokenService, MarsAdapter marsAdapter, SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository) {
+                                LsriTokenService lsriTokenService, MarsAdapter marsAdapter, SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository,
+                                SubmissionProcessingRepository submissionProcessingRepository) {
         super(webinTokenService, lsriTokenService);
         this.submissionService = submissionService;
         this.webinTokenService = webinTokenService;
         this.lsriTokenService = lsriTokenService;
         this.marsAdapter = marsAdapter;
         this.submissionTrackingDetailsRepository = submissionTrackingDetailsRepository;
+        this.submissionProcessingRepository = submissionProcessingRepository;
     }
 
     @Operation(summary = "This endpoint authenticates a user with LSRI")
@@ -212,8 +217,15 @@ public class SubmissionController extends BaseController {
                 case SubmissionStatus.UPLOADED:
                     return marsAdapter.buildMarsPendingReceipt();
                 case SubmissionStatus.PROCESSING:
-                    // TODO need to distinguish whether pre or post brokering
-                    return null;
+                    SubmissionProcessingStep step = SubmissionProcessingStep.valueOf(
+                            submissionProcessingRepository.findBySubmissionId(submissionId).getStep());
+                    return switch (step) {
+                        case VALIDATION, BROKERING -> marsAdapter.buildMarsPendingReceipt();
+                        case INGESTION -> {
+                            SubmissionTrackingDetails processingDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+                            yield marsAdapter.buildMarsSuccessfulReceipt(processingDetails, marsIsaJson);
+                        }
+                    };
                 case SubmissionStatus.ON_HOLD:
                 case SubmissionStatus.COMPLETED:
                     SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
