@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionAccount;
+import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
 import uk.ac.ebi.eva.submission.exception.InvalidSubmissionStatusException;
 import uk.ac.ebi.eva.submission.exception.MetadataFileInfoMismatchException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
@@ -34,6 +35,7 @@ import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.exception.UnsupportedVersionException;
 import uk.ac.ebi.eva.submission.exception.UnauthorizedException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
+import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
 import uk.ac.ebi.eva.submission.service.MarsConversionService;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
@@ -68,14 +70,16 @@ public class SubmissionController extends BaseController {
     private final WebinTokenService webinTokenService;
     private final LsriTokenService lsriTokenService;
     private final MarsConversionService marsConversionService;
+    private final SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
 
     public SubmissionController(SubmissionService submissionService, WebinTokenService webinTokenService,
-                                LsriTokenService lsriTokenService, MarsConversionService marsConversionService) {
+                                LsriTokenService lsriTokenService, MarsConversionService marsConversionService, SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository) {
         super(webinTokenService, lsriTokenService);
         this.submissionService = submissionService;
         this.webinTokenService = webinTokenService;
         this.lsriTokenService = lsriTokenService;
         this.marsConversionService = marsConversionService;
+        this.submissionTrackingDetailsRepository = submissionTrackingDetailsRepository;
     }
 
     @Operation(summary = "This endpoint authenticates a user with LSRI")
@@ -172,7 +176,6 @@ public class SubmissionController extends BaseController {
         }
         Submission submission = this.submissionService.initiateSubmission(submissionAccount);
         MarsFtpCredentials ftpCredentials = MarsFtpCredentials.builder()
-                // TODO Globus API endpoint
                 .uploadPath(submission.getUploadUrl())
                 .build();
         MarsInitiateResponse response = MarsInitiateResponse.builder()
@@ -192,11 +195,32 @@ public class SubmissionController extends BaseController {
                                             @RequestBody IsaJson marsIsaJson) {
         try {
             String submissionId = marsConversionService.getSubmissionId(marsIsaJson);
-            // TODO check the submission status - if it's OPEN do the submission and return a pending receipt
-            //  If it's completed, return a successful or error receipt as required.
-            JsonNode evaMetadataJson = marsConversionService.convertMarsToEvaJson(marsIsaJson);
-            Submission submission = doSubmission(bearerToken, submissionId, evaMetadataJson);
-            return marsConversionService.buildMarsPendingReceipt(submission);
+
+            // Do the submission and/or return the appropriate receipt, based on the submission status
+            String submissionStatus = submissionService.getSubmissionStatus(submissionId);
+            SubmissionStatus status;
+            try {
+                status = SubmissionStatus.valueOf(submissionStatus);
+            } catch (IllegalArgumentException e) {
+                return marsConversionService.buildMarsFailedReceipt("Invalid submission status");
+            }
+            switch (status) {
+                case SubmissionStatus.OPEN:
+                    JsonNode evaMetadataJson = marsConversionService.convertMarsToEvaJson(marsIsaJson);
+                    Submission submission = doSubmission(bearerToken, submissionId, evaMetadataJson);
+                    return marsConversionService.buildMarsPendingReceipt();
+                case SubmissionStatus.UPLOADED:
+                    return marsConversionService.buildMarsPendingReceipt();
+                case SubmissionStatus.PROCESSING:
+                    // TODO need to distinguish whether pre or post brokering
+                    return null;
+                case SubmissionStatus.ON_HOLD:
+                case SubmissionStatus.COMPLETED:
+                    SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
+                    return marsConversionService.buildMarsSuccessfulReceipt(submissionDetails, marsIsaJson);
+                default:
+                    return marsConversionService.buildMarsFailedReceipt("Submission failed");
+            }
         } catch (MarsReceiptException ex) {
             return marsConversionService.buildMarsFailedReceipt(ex);
         } catch (Exception ex) {

@@ -22,11 +22,11 @@ import com.elixir.mars.repository.models.isa.Protocol;
 import com.elixir.mars.repository.models.isa.Sample;
 import com.elixir.mars.repository.models.isa.Study;
 import com.elixir.mars.repository.models.receipt.MarsReceipt;
+import com.elixir.mars.repository.models.receipt.MarsSubmissionStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
-import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
 import uk.ac.ebi.eva.submission.model.metadata.Analysis;
 import uk.ac.ebi.eva.submission.model.metadata.EvaMetadata;
@@ -71,6 +71,9 @@ public class MarsConversionService extends MarsReceiptProvider {
     }
 
     public JsonNode convertMarsToEvaJson(IsaJson marsIsaJson) {
+        // TODO:
+        //  - refactor to use library methods for graph traversal
+        //  - refactor to reuse traversal for filling accession map
         EvaMetadata evaMetadata = new EvaMetadata();
 
         // Assume single study
@@ -228,29 +231,24 @@ public class MarsConversionService extends MarsReceiptProvider {
         return null;
     }
 
-    public MarsReceipt buildMarsPendingReceipt(Submission submission) {
-        // TODO
-        return null;
+    public MarsReceipt buildMarsPendingReceipt() {
+        return buildMarsReceipt(null, null, null, null, null, null, null, null, MarsSubmissionStatus.PENDING, null);
     }
 
     public MarsReceipt buildMarsSuccessfulReceipt(SubmissionTrackingDetails trackingDetails, IsaJson isaJson) {
-        // TODO
+        String projectAccession = trackingDetails.getProjectAccession();
+        List<String> analysisAccessions = trackingDetails.getAnalysisAccessions();
+        // TODO need to match accessions with the correct entities in ISA-JSON
         return null;
     }
 
     public MarsReceipt buildMarsFailedReceipt(String message) {
-        buildMarsReceipt(null, null, null, null, null, null, Collections.singletonList(message), null);
-        return getMarsReceipt();
+        return buildMarsReceipt(null, null, null, null, null, null, Collections.singletonList(message),null, MarsSubmissionStatus.FAILURE, null);
     }
 
     public MarsReceipt buildMarsFailedReceipt(MarsReceiptException exception) {
         // TODO - for more detailed errors, i.e. with paths
         return null;
-    }
-
-    @Override
-    public String convertMarsReceiptToJson() {
-        throw new UnsupportedOperationException("Not supported");
     }
 
     public String getSubmissionId(IsaJson marsIsaJson) {
