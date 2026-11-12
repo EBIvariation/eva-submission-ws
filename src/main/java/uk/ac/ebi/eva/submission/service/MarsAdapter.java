@@ -1,19 +1,17 @@
 package uk.ac.ebi.eva.submission.service;
 
-import com.elixir.mars.repository.IsaJsonGraphLookup;
 import com.elixir.mars.repository.MarsReceiptException;
 import com.elixir.mars.repository.MarsReceiptProvider;
+import com.elixir.mars.repository.ReceiptAccessionsMap;
 import com.elixir.mars.repository.models.isa.Assay;
 import com.elixir.mars.repository.models.isa.Characteristic;
 import com.elixir.mars.repository.models.isa.CharacteristicCategory;
 import com.elixir.mars.repository.models.isa.CharacteristicType;
 import com.elixir.mars.repository.models.isa.Comment;
 import com.elixir.mars.repository.models.isa.DataFile;
-import com.elixir.mars.repository.models.isa.ExecutesProtocol;
 import com.elixir.mars.repository.models.isa.Input;
 import com.elixir.mars.repository.models.isa.IsaJson;
 import com.elixir.mars.repository.models.isa.Parameter;
-import com.elixir.mars.repository.models.isa.ParameterName;
 import com.elixir.mars.repository.models.isa.ParameterValue;
 import com.elixir.mars.repository.models.isa.ProcessSequence;
 import com.elixir.mars.repository.models.isa.Protocol;
@@ -41,14 +39,16 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.elixir.mars.repository.IsaJsonGraphLookup.findProcessByOutputId;
+import static com.elixir.mars.repository.IsaJsonGraphLookup.findSubmissionId;
 
 @Service
-public class MarsConversionService extends MarsReceiptProvider {
+public class MarsAdapter extends MarsReceiptProvider {
 
     private static final String REPOSITORY_ID = "eva";
 
@@ -65,7 +65,7 @@ public class MarsConversionService extends MarsReceiptProvider {
     private static final String SAMPLE_IN_VCF_KEY = "sampleInVcf";
     private static final String SAMPLE_ACCESSION_KEY = "accession";
 
-    public MarsConversionService() {
+    public MarsAdapter() {
         super(REPOSITORY_ID);
     }
 
@@ -73,13 +73,10 @@ public class MarsConversionService extends MarsReceiptProvider {
         EvaMetadata evaMetadata = new EvaMetadata();
 
         // Assume single study
-        Study study = marsIsaJson.getStudies().getFirst();
+        MarsMapping mapping = mapMarsEntities(marsIsaJson);
+        Study study = mapping.study();
 
         // Study level maps to help find entities by ID
-        Map<String, List<Parameter>> protocolParamsMap = new HashMap<>();
-        for (Protocol protocol : study.getProtocols()) {
-            protocolParamsMap.put(protocol.getId(), protocol.getParameters());
-        }
         Map<String, Sample> sampleMap = new HashMap<>();
         for (Sample sample : study.getMaterials().getSamples()) {
             sampleMap.put(sample.getId(), sample);
@@ -110,10 +107,11 @@ public class MarsConversionService extends MarsReceiptProvider {
             }
         }
         evaMetadata.setProject(new Project(study.getTitle(), study.getDescription(), taxonomyId, centre));
-        // TODO need to provide a project accession, so fill in the receipt map here
 
         // Assume ISA is already filtered to only include EVA assays
         List<Analysis> analyses = new ArrayList<>();
+        List<File> files = new ArrayList<>();
+        List<EvaSample> samples = new ArrayList<>();
         for (Assay assay : study.getAssays()) {
 
             Map<String, ProcessSequence> processMap = new HashMap<>();
@@ -121,11 +119,12 @@ public class MarsConversionService extends MarsReceiptProvider {
                 processMap.put(process.getId(), process);
             }
 
-            List<File> files = new ArrayList<>();
-            List<EvaSample> samples = new ArrayList<>();
-
             // Start with data files
-            for (DataFile dataFile : assay.getDataFiles()) {
+            for (AnalysisMapping analysisMapping : mapping.analyses()) {
+                if (analysisMapping.assay() != assay) {
+                    continue;
+                }
+                DataFile dataFile = analysisMapping.dataFile();
                 String md5checksum = null;
                 Long fileSize = null;
                 for (Comment comment :  dataFile.getComments()) {
@@ -138,42 +137,18 @@ public class MarsConversionService extends MarsReceiptProvider {
                 }
 
                 // Create Analysis from process sequence
-                ProcessSequence process = findProcessByOutputId(assay.getProcessSequence(), dataFile.getId());
-                ExecutesProtocol protocol = process.getExecutesProtocol();
-                String analysisTitle = null;
-                String analysisAlias = null;
-                String analysisDescription = null;
-                ExperimentType experimentType = null;
-                String referenceGenome = null;
-
-                Map<String, String> paramIdToValueMap = new HashMap<>();
-                for (ParameterValue paramVal : process.getParameterValues()) {
-                    paramIdToValueMap.put(paramVal.getCategory().getId(), paramVal.getValue().getAnnotationValue());
-                }
-
-                for (Parameter param : protocolParamsMap.get(protocol.getId())) {
-                    ParameterName paramName = param.getParameterName();
-                    if (paramName.getAnnotationValue().equalsIgnoreCase(ANALYSIS_TITLE_KEY)) {
-                        analysisTitle = paramIdToValueMap.get(param.getId());
-                    }
-                    if (paramName.getAnnotationValue().equalsIgnoreCase(ANALYSIS_ALIAS_KEY)) {
-                        analysisAlias = paramIdToValueMap.get(param.getId());
-                    }
-                    if (paramName.getAnnotationValue().equalsIgnoreCase(ANALYSIS_DESCRIPTION_KEY)) {
-                        analysisDescription = paramIdToValueMap.get(param.getId());
-                    }
-                    if (paramName.getAnnotationValue().equalsIgnoreCase(EXPERIMENT_TYPE_KEY)) {
-                        experimentType = ExperimentType.valueOf(paramIdToValueMap.get(param.getId()).toUpperCase());
-                    }
-                    if (paramName.getAnnotationValue().equalsIgnoreCase(REFERENCE_GENOME_KEY)) {
-                        referenceGenome = paramIdToValueMap.get(param.getId());
-                    }
-                }
+                ProcessSequence process = analysisMapping.process();
+                String analysisTitle = analysisMapping.parameter(ANALYSIS_TITLE_KEY);
+                String analysisAlias = analysisMapping.parameter(ANALYSIS_ALIAS_KEY);
+                String analysisDescription = analysisMapping.parameter(ANALYSIS_DESCRIPTION_KEY);
+                String experimentTypeValue = analysisMapping.parameter(EXPERIMENT_TYPE_KEY);
+                ExperimentType experimentType = experimentTypeValue == null ? null
+                        : ExperimentType.valueOf(experimentTypeValue.toUpperCase(Locale.ROOT));
+                String referenceGenome = analysisMapping.parameter(REFERENCE_GENOME_KEY);
 
                 files.add(new File(analysisAlias, dataFile.getName(), md5checksum, fileSize));
                 analyses.add(new Analysis(analysisTitle, analysisAlias, analysisDescription, experimentType,
                                           referenceGenome));
-                // TODO need to provide an analysis accession, so fill in the receipt map here
 
                 // End with samples
                 // Walk back via process input/output or previous process links, to be sure to collect all sample inputs
@@ -203,17 +178,24 @@ public class MarsConversionService extends MarsReceiptProvider {
                             samples.add(new EvaSample(analysisAlias, sampleInVcf, bioSampleAccession));
                         }
                         // Add process that produced this input
-                        processesToVisit.add(findProcessByOutputId(assay.getProcessSequence(), input.getId()));
+                        ProcessSequence producer = findProcessByOutputId(assay.getProcessSequence(), input.getId());
+                        if (producer != null) {
+                            processesToVisit.add(producer);
+                        }
                     }
                     // Add previous process
-                    processesToVisit.add(processMap.get(currentProcess.getPreviousProcess().getId()));
+                    if (currentProcess.getPreviousProcess() != null) {
+                        ProcessSequence previous = processMap.get(currentProcess.getPreviousProcess().getId());
+                        if (previous != null) {
+                            processesToVisit.add(previous);
+                        }
+                    }
                 }
             }
-
-            evaMetadata.setFiles(files);
-            evaMetadata.setSamples(samples);
-            evaMetadata.setAnalyses(analyses);
         }
+        evaMetadata.setFiles(files);
+        evaMetadata.setSamples(samples);
+        evaMetadata.setAnalyses(analyses);
 
         ObjectMapper mapper = new ObjectMapper();
         return mapper.valueToTree(evaMetadata);
@@ -224,10 +206,80 @@ public class MarsConversionService extends MarsReceiptProvider {
     }
 
     public MarsReceipt buildMarsSuccessfulReceipt(SubmissionTrackingDetails trackingDetails, IsaJson isaJson) {
-        String projectAccession = trackingDetails.getProjectAccession();
-        List<SubmittedAnalysis> submittedAnalyses = trackingDetails.getAnalyses();
-        // TODO need to match accessions with the correct entities in ISA-JSON
-        return null;
+        MarsMapping mapping = mapMarsEntities(isaJson);
+        Map<String, String> accessionsByAlias = new HashMap<>();
+        for (SubmittedAnalysis analysis : trackingDetails.getAnalyses()) {
+            if (analysis.getAnalysisAccession() == null) {
+                throw new IllegalArgumentException("Missing accession for analysis: " + analysis.getAnalysisAlias());
+            }
+            if (accessionsByAlias.putIfAbsent(analysis.getAnalysisAlias(), analysis.getAnalysisAccession()) != null) {
+                throw new IllegalArgumentException("Duplicate submitted analysis alias: " + analysis.getAnalysisAlias());
+            }
+        }
+        if (trackingDetails.getProjectAccession() == null) {
+            throw new IllegalArgumentException("Missing project accession");
+        }
+
+        ReceiptAccessionsMap studiesAccessionsMap = new ReceiptAccessionsMap(
+                Study.Fields.identifier, mapping.study().getIdentifier());
+        studiesAccessionsMap.accessionMap.put(mapping.study().getIdentifier(), trackingDetails.getProjectAccession());
+        ReceiptAccessionsMap dataFilesAccessionsMap = new ReceiptAccessionsMap();
+        dataFilesAccessionsMap.isaItemName = DataFile.Fields.id;
+        for (AnalysisMapping analysis : mapping.analyses()) {
+            String alias = analysis.parameter(ANALYSIS_ALIAS_KEY);
+            String accession = accessionsByAlias.get(alias);
+            if (accession == null) {
+                throw new IllegalArgumentException("No submitted analysis accession for alias: " + alias);
+            }
+            String previousAccession = dataFilesAccessionsMap.accessionMap.putIfAbsent(
+                    analysis.dataFile().getId(), accession);
+            if (previousAccession != null && !previousAccession.equals(accession)) {
+                throw new IllegalArgumentException("Conflicting accessions for data file ID: "
+                        + analysis.dataFile().getId());
+            }
+        }
+        return buildMarsReceipt(studiesAccessionsMap, null, null, null, dataFilesAccessionsMap,
+                null, null, null, MarsSubmissionStatus.SUCCESS, isaJson);
+    }
+
+    private record AnalysisMapping(Assay assay, DataFile dataFile, ProcessSequence process,
+                                   Map<String, String> parameters) {
+        private String parameter(String name) {
+            return parameters.get(name.toLowerCase(Locale.ROOT));
+        }
+    }
+
+    private record MarsMapping(Study study, List<AnalysisMapping> analyses) {}
+
+    // Shared entity mapping method for study and analysis, so can be shared between initial metadata submissions and
+    // receipt generation
+    private MarsMapping mapMarsEntities(IsaJson isaJson) {
+        // Assume single study
+        Study study = isaJson.getStudies().getFirst();
+        Map<String, List<Parameter>> protocolParamsMap = new HashMap<>();
+        for (Protocol protocol : study.getProtocols()) {
+            protocolParamsMap.put(protocol.getId(), protocol.getParameters());
+        }
+        List<AnalysisMapping> analyses = new ArrayList<>();
+        for (Assay assay : study.getAssays()) {
+            for (DataFile dataFile : assay.getDataFiles()) {
+                ProcessSequence process = findProcessByOutputId(assay.getProcessSequence(), dataFile.getId());
+                if (process == null) {
+                    throw new IllegalArgumentException("No producing process for data file: " + dataFile.getId());
+                }
+                Map<String, String> valuesById = new HashMap<>();
+                for (ParameterValue value : process.getParameterValues()) {
+                    valuesById.put(value.getCategory().getId(), value.getValue().getAnnotationValue());
+                }
+                Map<String, String> parameters = new HashMap<>();
+                for (Parameter parameter : protocolParamsMap.get(process.getExecutesProtocol().getId())) {
+                    parameters.put(parameter.getParameterName().getAnnotationValue().toLowerCase(Locale.ROOT),
+                            valuesById.get(parameter.getId()));
+                }
+                analyses.add(new AnalysisMapping(assay, dataFile, process, parameters));
+            }
+        }
+        return new MarsMapping(study, analyses);
     }
 
     public MarsReceipt buildMarsFailedReceipt(String message) {
@@ -240,6 +292,6 @@ public class MarsConversionService extends MarsReceiptProvider {
     }
 
     public String getSubmissionId(IsaJson marsIsaJson) {
-        return IsaJsonGraphLookup.findSubmissionId(marsIsaJson, REPOSITORY_ID);
+        return findSubmissionId(marsIsaJson, REPOSITORY_ID);
     }
 }

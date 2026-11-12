@@ -37,7 +37,7 @@ import uk.ac.ebi.eva.submission.exception.UnauthorizedException;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
 import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
 import uk.ac.ebi.eva.submission.service.LsriTokenService;
-import uk.ac.ebi.eva.submission.service.MarsConversionService;
+import uk.ac.ebi.eva.submission.service.MarsAdapter;
 import uk.ac.ebi.eva.submission.service.SubmissionService;
 import uk.ac.ebi.eva.submission.service.WebinTokenService;
 import uk.ac.ebi.eva.submission.util.Utils;
@@ -69,16 +69,16 @@ public class SubmissionController extends BaseController {
     private final SubmissionService submissionService;
     private final WebinTokenService webinTokenService;
     private final LsriTokenService lsriTokenService;
-    private final MarsConversionService marsConversionService;
+    private final MarsAdapter marsAdapter;
     private final SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository;
 
     public SubmissionController(SubmissionService submissionService, WebinTokenService webinTokenService,
-                                LsriTokenService lsriTokenService, MarsConversionService marsConversionService, SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository) {
+                                LsriTokenService lsriTokenService, MarsAdapter marsAdapter, SubmissionTrackingDetailsRepository submissionTrackingDetailsRepository) {
         super(webinTokenService, lsriTokenService);
         this.submissionService = submissionService;
         this.webinTokenService = webinTokenService;
         this.lsriTokenService = lsriTokenService;
-        this.marsConversionService = marsConversionService;
+        this.marsAdapter = marsAdapter;
         this.submissionTrackingDetailsRepository = submissionTrackingDetailsRepository;
     }
 
@@ -194,7 +194,7 @@ public class SubmissionController extends BaseController {
     public MarsReceipt submitMarsSubmission(@RequestHeader("Authorization") String bearerToken,
                                             @RequestBody IsaJson marsIsaJson) {
         try {
-            String submissionId = marsConversionService.getSubmissionId(marsIsaJson);
+            String submissionId = marsAdapter.getSubmissionId(marsIsaJson);
 
             // Do the submission and/or return the appropriate receipt, based on the submission status
             String submissionStatus = submissionService.getSubmissionStatus(submissionId);
@@ -202,29 +202,29 @@ public class SubmissionController extends BaseController {
             try {
                 status = SubmissionStatus.valueOf(submissionStatus);
             } catch (IllegalArgumentException e) {
-                return marsConversionService.buildMarsFailedReceipt("Invalid submission status");
+                return marsAdapter.buildMarsFailedReceipt("Invalid submission status");
             }
             switch (status) {
                 case SubmissionStatus.OPEN:
-                    JsonNode evaMetadataJson = marsConversionService.convertMarsToEvaJson(marsIsaJson);
+                    JsonNode evaMetadataJson = marsAdapter.convertMarsToEvaJson(marsIsaJson);
                     Submission submission = doSubmission(bearerToken, submissionId, evaMetadataJson);
-                    return marsConversionService.buildMarsPendingReceipt();
+                    return marsAdapter.buildMarsPendingReceipt();
                 case SubmissionStatus.UPLOADED:
-                    return marsConversionService.buildMarsPendingReceipt();
+                    return marsAdapter.buildMarsPendingReceipt();
                 case SubmissionStatus.PROCESSING:
                     // TODO need to distinguish whether pre or post brokering
                     return null;
                 case SubmissionStatus.ON_HOLD:
                 case SubmissionStatus.COMPLETED:
                     SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
-                    return marsConversionService.buildMarsSuccessfulReceipt(submissionDetails, marsIsaJson);
+                    return marsAdapter.buildMarsSuccessfulReceipt(submissionDetails, marsIsaJson);
                 default:
-                    return marsConversionService.buildMarsFailedReceipt("Submission failed");
+                    return marsAdapter.buildMarsFailedReceipt("Submission failed");
             }
         } catch (MarsReceiptException ex) {
-            return marsConversionService.buildMarsFailedReceipt(ex);
+            return marsAdapter.buildMarsFailedReceipt(ex);
         } catch (Exception ex) {
-            return marsConversionService.buildMarsFailedReceipt(ex.getMessage());
+            return marsAdapter.buildMarsFailedReceipt(ex.getMessage());
         }
     }
 
