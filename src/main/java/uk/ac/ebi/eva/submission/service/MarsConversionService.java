@@ -3,7 +3,6 @@ package uk.ac.ebi.eva.submission.service;
 import com.elixir.mars.repository.IsaJsonGraphLookup;
 import com.elixir.mars.repository.MarsReceiptException;
 import com.elixir.mars.repository.MarsReceiptProvider;
-import com.elixir.mars.repository.ReceiptAccessionsMap;
 import com.elixir.mars.repository.models.isa.Assay;
 import com.elixir.mars.repository.models.isa.Characteristic;
 import com.elixir.mars.repository.models.isa.CharacteristicCategory;
@@ -13,7 +12,6 @@ import com.elixir.mars.repository.models.isa.DataFile;
 import com.elixir.mars.repository.models.isa.ExecutesProtocol;
 import com.elixir.mars.repository.models.isa.Input;
 import com.elixir.mars.repository.models.isa.IsaJson;
-import com.elixir.mars.repository.models.isa.Output;
 import com.elixir.mars.repository.models.isa.Parameter;
 import com.elixir.mars.repository.models.isa.ParameterName;
 import com.elixir.mars.repository.models.isa.ParameterValue;
@@ -28,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
+import uk.ac.ebi.eva.submission.entity.SubmittedAnalysis;
 import uk.ac.ebi.eva.submission.model.metadata.Analysis;
 import uk.ac.ebi.eva.submission.model.metadata.EvaMetadata;
 import uk.ac.ebi.eva.submission.model.metadata.ExperimentType;
@@ -36,18 +35,20 @@ import uk.ac.ebi.eva.submission.model.metadata.Project;
 import uk.ac.ebi.eva.submission.model.metadata.EvaSample;
 import uk.ac.ebi.eva.submission.model.metadata.SubmitterDetails;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import static com.elixir.mars.repository.IsaJsonGraphLookup.findProcessByOutputId;
 
 @Service
 public class MarsConversionService extends MarsReceiptProvider {
-
-    private ReceiptAccessionsMap studyAccessionMap;
-    private ReceiptAccessionsMap analysisAccessionMap;
 
     private static final String REPOSITORY_ID = "eva";
 
@@ -66,14 +67,9 @@ public class MarsConversionService extends MarsReceiptProvider {
 
     public MarsConversionService() {
         super(REPOSITORY_ID);
-        studyAccessionMap = new ReceiptAccessionsMap();
-        analysisAccessionMap = new ReceiptAccessionsMap();
     }
 
     public JsonNode convertMarsToEvaJson(IsaJson marsIsaJson) {
-        // TODO:
-        //  - refactor to use library methods for graph traversal
-        //  - refactor to reuse traversal for filling accession map
         EvaMetadata evaMetadata = new EvaMetadata();
 
         // Assume single study
@@ -180,9 +176,15 @@ public class MarsConversionService extends MarsReceiptProvider {
                 // TODO need to provide an analysis accession, so fill in the receipt map here
 
                 // End with samples
-                // Walk back until you have no previous process, to be sure to collect all sample inputs
-                ProcessSequence currentProcess = process;
-                do {
+                // Walk back via process input/output or previous process links, to be sure to collect all sample inputs
+                ArrayDeque<ProcessSequence> processesToVisit = new ArrayDeque<>();
+                Set<String> visitedProcessIds = new HashSet<>();
+                processesToVisit.add(process);
+                while (!processesToVisit.isEmpty()) {
+                    ProcessSequence currentProcess = processesToVisit.removeFirst();
+                    if (!visitedProcessIds.add(currentProcess.getId())) {
+                        continue;
+                    }
                     for (Input input : currentProcess.getInputs()) {
                         if (sampleMap.containsKey(input.getId())) {
                             Sample sampleToAdd = sampleMap.get(input.getId());
@@ -200,9 +202,12 @@ public class MarsConversionService extends MarsReceiptProvider {
                             }
                             samples.add(new EvaSample(analysisAlias, sampleInVcf, bioSampleAccession));
                         }
+                        // Add process that produced this input
+                        processesToVisit.add(findProcessByOutputId(assay.getProcessSequence(), input.getId()));
                     }
-                    currentProcess = processMap.get(currentProcess.getPreviousProcess().getId());
-                } while (currentProcess != null);
+                    // Add previous process
+                    processesToVisit.add(processMap.get(currentProcess.getPreviousProcess().getId()));
+                }
             }
 
             evaMetadata.setFiles(files);
@@ -214,30 +219,13 @@ public class MarsConversionService extends MarsReceiptProvider {
         return mapper.valueToTree(evaMetadata);
     }
 
-    private ProcessSequence findProcessByOutputId(ArrayList<ProcessSequence> processSequence, String outputId) {
-        if (processSequence == null || outputId == null) {
-            return null;
-        }
-
-        for (final ProcessSequence process : processSequence) {
-            if (process.getOutputs() != null) {
-                for (final Output output : process.getOutputs()) {
-                    if (outputId.equals(output.getId())) {
-                        return process;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
     public MarsReceipt buildMarsPendingReceipt() {
         return buildMarsReceipt(null, null, null, null, null, null, null, null, MarsSubmissionStatus.PENDING, null);
     }
 
     public MarsReceipt buildMarsSuccessfulReceipt(SubmissionTrackingDetails trackingDetails, IsaJson isaJson) {
         String projectAccession = trackingDetails.getProjectAccession();
-        List<String> analysisAccessions = trackingDetails.getAnalysisAccessions();
+        List<SubmittedAnalysis> submittedAnalyses = trackingDetails.getAnalyses();
         // TODO need to match accessions with the correct entities in ISA-JSON
         return null;
     }
