@@ -174,12 +174,19 @@ public class SubmissionController extends BaseController {
                     required = true, in = ParameterIn.HEADER)
     })
     @PostMapping("mars/initiate")
-    public ResponseEntity<?> initiateMarsSubmission(@RequestHeader("Authorization") String bearerToken) {
+    public ResponseEntity<?> initiateMarsSubmission(@RequestHeader("Authorization") String bearerToken,
+                                                    @RequestBody IsaJson marsIsaJson) {
         SubmissionAccount submissionAccount = this.getSubmissionAccount(bearerToken);
         if (Objects.isNull(submissionAccount)) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-        Submission submission = this.submissionService.initiateSubmission(submissionAccount);
+        String submissionId = marsAdapter.getSubmissionId(marsIsaJson);
+        Submission submission = submissionId == null ? null : submissionService.getSubmission(submissionId);
+        if (submission == null) {
+            submission = submissionService.initiateSubmission(submissionAccount);
+        } else if (!submission.getSubmissionAccount().getId().equals(submissionAccount.getId())) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
         MarsFtpCredentials ftpCredentials = MarsFtpCredentials.builder()
                 .uploadPath(submission.getUploadUrl())
                 .build();

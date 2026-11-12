@@ -180,6 +180,10 @@ public class SubmissionService {
         return Collections.unmodifiableMap(statusMapping);
     }
 
+    public Submission getSubmission(String submissionId) {
+        return submissionRepository.findBySubmissionId(submissionId);
+    }
+
     public Submission initiateSubmission(SubmissionAccount submissionAccount) {
         String submissionId = UUID.randomUUID().toString();
         String directoryToCreate = String.format("%s/%s", submissionAccount.getId(), submissionId);
