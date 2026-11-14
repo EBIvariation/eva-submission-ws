@@ -28,8 +28,9 @@ public interface SubmissionRepository extends CrudRepository<Submission, String>
                     "LEFT JOIN eva_submissions.submission_details sd ON sd.submission_id = s.submission_id " +
                     "LEFT JOIN eva_submissions.submission_tracking_details st ON st.submission_id = s.submission_id " +
                     "LEFT JOIN (" +
-                    "    SELECT submission_id, string_agg(analysis_accessions, ',') AS analysis_accessions" +
-                    "    FROM eva_submissions.submission_tracking_details_analysis_accessions" +
+                    "    SELECT submission_id, string_agg(analysis_accession, ',') AS analysis_accessions" +
+                    "    FROM eva_submissions.submitted_analysis" +
+                    "    WHERE analysis_accession IS NOT NULL" +
                     "    GROUP BY submission_id" +
                     ") sta ON sta.submission_id = s.submission_id " +
                     "WHERE (CAST(:submissionAccount AS text) IS NULL OR sa.id = :submissionAccount) " +

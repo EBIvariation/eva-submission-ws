@@ -1,0 +1,102 @@
+package uk.ac.ebi.eva.submission.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
+
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Objects;
+
+@Entity
+@IdClass(SubmittedSample.SubmittedSampleId.class)
+@Table(schema = "eva_submissions", name = "submitted_sample")
+public class SubmittedSample {
+
+    public SubmittedSample() {
+    }
+
+    public SubmittedSample(String submissionId, String sampleName) {
+        this.submissionId = submissionId;
+        this.sampleName = sampleName;
+        this.analyses = new ArrayList<>();
+    }
+
+    @Id
+    @Column(name = "submission_id")
+    private String submissionId;
+
+    @Id
+    @Column(name = "sample_name")
+    private String sampleName;
+
+    @Column(name = "sample_accession")
+    private String sampleAccession;
+
+    @ManyToMany(mappedBy = "samples")
+    private List<SubmittedAnalysis> analyses;
+
+    public static final class SubmittedSampleId {
+
+        private String submissionId;
+
+        private String sampleName;
+
+        public SubmittedSampleId() {
+        }
+
+        public SubmittedSampleId(String submissionId, String sampleName) {
+            this.submissionId = submissionId;
+            this.sampleName = sampleName;
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (object == null || getClass() != object.getClass()) {
+                return false;
+            }
+            SubmittedSampleId that = (SubmittedSampleId) object;
+            return Objects.equals(submissionId, that.submissionId)
+                    && Objects.equals(sampleName, that.sampleName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(submissionId, sampleName);
+        }
+    }
+
+    public String getSubmissionId() {
+        return submissionId;
+    }
+
+    public void setSubmissionId(String submissionId) {
+        this.submissionId = submissionId;
+    }
+
+    public String getSampleName() {
+        return sampleName;
+    }
+
+    public String getSampleAccession() {
+        return sampleAccession;
+    }
+
+    public void setSampleAccession(String sampleAccession) {
+        this.sampleAccession = sampleAccession;
+    }
+
+    public List<SubmittedAnalysis> getAnalyses() {
+        return analyses;
+    }
+
+    public void setAnalyses(List<SubmittedAnalysis> analyses) {
+        this.analyses = analyses;
+    }
+}
