@@ -189,7 +189,6 @@ public class SubmissionWSIntegrationTest {
         registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
         registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
         registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
 
         // MailHog Configuration
         registry.add("eva.email.server", mailhog::getHost);
@@ -2264,6 +2263,98 @@ public class SubmissionWSIntegrationTest {
                         .headers(adminHeaders()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.projectTitle").value("Test project"));
+    }
+
+    @Test
+    @Transactional
+    public void testGetTrackingDetails_returnsEverythingSetByPut() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode()
+                .put("releaseDate", "2030-01-31")
+                .put("projectAccession", "PRJEB12345")
+                .put("projectTitle", "Test project")
+                .put("projectTaxonomies", "9606,10090")
+                .put("metadataJsonFile", "metadata.json")
+                .put("rtLink", "https://rt.example.org/Ticket/Display.html?id=42");
+        ArrayNode analyses = rootNode.putArray("analyses");
+        ObjectNode analysis1 = analyses.addObject()
+                .put("analysisAlias", "analysis-1")
+                .put("analysisAccession", "ERZ111")
+                .put("aggregationType", "NONE")
+                .put("assemblyAccession", "GCA_000001405.29");
+        analysis1.putArray("samples").addObject()
+                .put("analysisAlias", "analysis-1")
+                .put("sampleName", "shared-sample")
+                .put("sampleAccession", "SAMEA111");
+        analysis1.putArray("vcfs").addObject()
+                .put("analysisAlias", "analysis-1")
+                .put("submittedFile", "input1.vcf.gz")
+                .put("brokeredFile", "brokered1.vcf.gz")
+                .put("csiFile", "brokered1.vcf.gz.csi")
+                .put("brokeredFileMd5", "md5-vcf-1")
+                .put("csiFileMd5", "md5-csi-1");
+        ObjectNode analysis2 = analyses.addObject()
+                .put("analysisAlias", "analysis-2")
+                .put("analysisAccession", "ERZ222")
+                .put("aggregationType", "BASIC")
+                .put("assemblyAccession", "GCA_000001635.9");
+        // the same sample is linked to a second analysis
+        analysis2.putArray("samples").addObject()
+                .put("analysisAlias", "analysis-2")
+                .put("sampleName", "shared-sample");
+        analysis2.putArray("vcfs").addObject()
+                .put("analysisAlias", "analysis-2")
+                .put("submittedFile", "input2.vcf.gz")
+                .put("brokeredFile", "brokered2.vcf.gz");
+
+        performTrackingUpdate(mapper, rootNode).andExpect(status().isOk());
+
+        // Write everything to the database and drop the persistence context, so that the GET below reloads the
+        // tracking details (including the nested collections) from the database rather than from entities that are
+        // still held in memory by this test's transaction
+        entityManager.flush();
+        entityManager.clear();
+
+        mvc.perform(get("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(adminHeaders()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.releaseDate").value("2030-01-31"))
+                .andExpect(jsonPath("$.projectAccession").value("PRJEB12345"))
+                .andExpect(jsonPath("$.projectTitle").value("Test project"))
+                .andExpect(jsonPath("$.projectTaxonomies").value("9606,10090"))
+                .andExpect(jsonPath("$.metadataJsonFile").value("metadata.json"))
+                .andExpect(jsonPath("$.rtLink").value("https://rt.example.org/Ticket/Display.html?id=42"))
+                .andExpect(jsonPath("$.analyses.length()").value(2))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].analysisAccession")
+                        .value(hasItem("ERZ111")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].aggregationType")
+                        .value(hasItem("NONE")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].assemblyAccession")
+                        .value(hasItem("GCA_000001405.29")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].samples[0].sampleName")
+                        .value(hasItem("shared-sample")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].samples[0].sampleAccession")
+                        .value(hasItem("SAMEA111")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].submittedFile")
+                        .value(hasItem("input1.vcf.gz")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].brokeredFile")
+                        .value(hasItem("brokered1.vcf.gz")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].csiFile")
+                        .value(hasItem("brokered1.vcf.gz.csi")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].brokeredFileMd5")
+                        .value(hasItem("md5-vcf-1")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].csiFileMd5")
+                        .value(hasItem("md5-csi-1")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].analysisAccession")
+                        .value(hasItem("ERZ222")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].aggregationType")
+                        .value(hasItem("BASIC")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].assemblyAccession")
+                        .value(hasItem("GCA_000001635.9")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].samples[0].sampleName")
+                        .value(hasItem("shared-sample")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].vcfs[0].submittedFile")
+                        .value(hasItem("input2.vcf.gz")));
     }
 
     @Test
