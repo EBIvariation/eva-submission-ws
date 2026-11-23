@@ -39,7 +39,9 @@ import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/admin")
@@ -114,6 +116,30 @@ public class AdminController extends BaseController {
         try {
             SubmissionProcessing submissionProc = this.submissionService.markSubmissionProcessStepAndStatus(submissionId, step, status);
             return new ResponseEntity<>(submissionProc, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @Operation(summary = "Given a submission id, this endpoint retrieves the current processing step and status of the submission",
+            security = {@SecurityRequirement(name = "basicAuth")})
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission whose processing step and status are needed",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @GetMapping("submission-process/{submissionId}")
+    public ResponseEntity<?> getSubmissionProcessStepAndStatus(@PathVariable("submissionId") String submissionId) {
+        try {
+            SubmissionProcessing submissionProc = submissionService.getSubmissionProcessing(submissionId);
+            if (submissionProc == null) {
+                return new ResponseEntity<>("No processing state found for submission " + submissionId,
+                        HttpStatus.NOT_FOUND);
+            }
+            Map<String, String> state = new LinkedHashMap<>();
+            state.put("submissionId", submissionProc.getSubmissionId());
+            state.put("step", submissionProc.getStep());
+            state.put("status", submissionProc.getStatus());
+            return new ResponseEntity<>(state, HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }
