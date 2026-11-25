@@ -133,13 +133,9 @@ public class AdminController extends BaseController {
             SubmissionProcessing submissionProc = submissionService.getSubmissionProcessing(submissionId);
             if (submissionProc == null) {
                 return new ResponseEntity<>("No processing state found for submission " + submissionId,
-                        HttpStatus.NOT_FOUND);
+                        HttpStatus.NO_CONTENT);
             }
-            Map<String, String> state = new LinkedHashMap<>();
-            state.put("submissionId", submissionProc.getSubmissionId());
-            state.put("step", submissionProc.getStep());
-            state.put("status", submissionProc.getStatus());
-            return new ResponseEntity<>(state, HttpStatus.OK);
+            return new ResponseEntity<>(submissionProc, HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
         }

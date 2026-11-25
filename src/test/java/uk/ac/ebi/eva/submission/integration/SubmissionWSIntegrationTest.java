@@ -1603,8 +1603,20 @@ public class SubmissionWSIntegrationTest {
         mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
                         .headers(adminHeaders())
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound())
+                .andExpect(status().isNoContent())
                 .andExpect(content().string("No processing state found for submission " + submissionId1));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusNoSubmissionEntry() throws Exception {
+        String submissionId1 = "test_submissioin_id";
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Submission with id test_submissioin_id does not exist"));
     }
 
     @Test
