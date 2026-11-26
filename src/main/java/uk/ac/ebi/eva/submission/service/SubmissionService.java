@@ -565,6 +565,13 @@ public class SubmissionService {
         return submissionProcessingRepository.save(submissionProc);
     }
 
+    public SubmissionProcessing getSubmissionProcessing(String submissionId) {
+        if (!submissionRepository.existsById(submissionId)) {
+            throw new SubmissionDoesNotExistException(submissionId);
+        }
+        return submissionProcessingRepository.findBySubmissionId(submissionId);
+    }
+
     public SubmissionDetails getSubmissionDetail(String submissionId) {
         return submissionDetailsRepository.findBySubmissionId(submissionId);
     }

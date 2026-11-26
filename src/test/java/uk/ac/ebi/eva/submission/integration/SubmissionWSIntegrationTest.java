@@ -1541,6 +1541,96 @@ public class SubmissionWSIntegrationTest {
                 .andExpect(jsonPath("$[*].submissionId").value(containsInAnyOrder(submissionId1)));
     }
 
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatus() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.BROKERING,
+                SubmissionProcessingStatus.RUNNING);
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submissionId").value(submissionId1))
+                .andExpect(jsonPath("$.step").value(SubmissionProcessingStep.BROKERING.toString()))
+                .andExpect(jsonPath("$.status").value(SubmissionProcessingStatus.RUNNING.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusOnlyReturnsRequestedSubmission() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.SUCCESS);
+        String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.INGESTION,
+                SubmissionProcessingStatus.ON_HOLD);
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId2)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submissionId").value(submissionId2))
+                .andExpect(jsonPath("$.step").value(SubmissionProcessingStep.INGESTION.toString()))
+                .andExpect(jsonPath("$.status").value(SubmissionProcessingStatus.ON_HOLD.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusReflectsLatestUpdate() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        HttpHeaders httpHeaders = adminHeaders();
+
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId1 + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.step").value(SubmissionProcessingStep.VALIDATION.toString()))
+                .andExpect(jsonPath("$.status").value(SubmissionProcessingStatus.SUCCESS.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusNoProcessingEntry() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string("No processing state found for submission " + submissionId1));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusNoSubmissionEntry() throws Exception {
+        String submissionId1 = "test_submissioin_id";
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Submission with id test_submissioin_id does not exist"));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusSubmissionDoesNotExist() throws Exception {
+        String wrongSubmissionId = "test-wrong-submission-id";
+
+        mvc.perform(get("/v1/admin/submission-process/" + wrongSubmissionId)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Submission with id " + wrongSubmissionId + " does not exist"));
+    }
+
 
     @Test
     @Transactional
