@@ -13,6 +13,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -24,6 +25,7 @@ import uk.ac.ebi.eva.submission.controller.BaseController;
 import uk.ac.ebi.eva.submission.entity.Submission;
 import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
+import uk.ac.ebi.eva.submission.exception.InvalidTrackingDetailsException;
 import uk.ac.ebi.eva.submission.exception.RequiredFieldsMissingException;
 import uk.ac.ebi.eva.submission.exception.SubmissionDoesNotExistException;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
@@ -37,7 +39,9 @@ import uk.ac.ebi.eva.submission.service.WebinTokenService;
 
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/admin")
@@ -111,6 +115,26 @@ public class AdminController extends BaseController {
                                                                 @PathVariable("status") SubmissionProcessingStatus status) {
         try {
             SubmissionProcessing submissionProc = this.submissionService.markSubmissionProcessStepAndStatus(submissionId, step, status);
+            return new ResponseEntity<>(submissionProc, HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @Operation(summary = "Given a submission id, this endpoint retrieves the current processing step and status of the submission",
+            security = {@SecurityRequirement(name = "basicAuth")})
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission whose processing step and status are needed",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @GetMapping("submission-process/{submissionId}")
+    public ResponseEntity<?> getSubmissionProcessStepAndStatus(@PathVariable("submissionId") String submissionId) {
+        try {
+            SubmissionProcessing submissionProc = submissionService.getSubmissionProcessing(submissionId);
+            if (submissionProc == null) {
+                return new ResponseEntity<>("No processing state found for submission " + submissionId,
+                        HttpStatus.NO_CONTENT);
+            }
             return new ResponseEntity<>(submissionProc, HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
@@ -208,7 +232,42 @@ public class AdminController extends BaseController {
                     HttpStatus.OK);
         } catch (SubmissionDoesNotExistException ex) {
             return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (InvalidTrackingDetailsException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
+    @Operation(summary = "Given a submission id, this endpoint fetches the tracking details (release date, etc.)",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission to fetch",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @GetMapping("submission/{submissionId}/trackingDetails")
+    public ResponseEntity<?> getTrackingDetails(@PathVariable("submissionId") String submissionId) {
+        try {
+            return new ResponseEntity<>(submissionService.getTrackingDetails(submissionId), HttpStatus.OK);
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
+
+    @Operation(summary = "Given a submission id, this endpoint deletes the tracking details (release date, etc.)",
+            security = {@SecurityRequirement(name = "basicAuth")
+            })
+    @Parameters({
+            @Parameter(name = "submissionId", description = "Id of the submission whose tracking details should be deleted",
+                    required = true, in = ParameterIn.PATH)
+    })
+    @DeleteMapping("submission/{submissionId}/trackingDetails")
+    public ResponseEntity<?> clearTrackingDetails(@PathVariable("submissionId") String submissionId) {
+        try {
+            submissionService.clearTrackingDetails(submissionId);
+            return ResponseEntity.noContent().build();
+        } catch (SubmissionDoesNotExistException ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
 }

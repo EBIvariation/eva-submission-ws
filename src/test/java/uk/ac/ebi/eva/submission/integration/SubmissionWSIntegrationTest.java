@@ -39,6 +39,9 @@ import uk.ac.ebi.eva.submission.entity.SubmissionDetails;
 import uk.ac.ebi.eva.submission.entity.SubmissionEload;
 import uk.ac.ebi.eva.submission.entity.SubmissionProcessing;
 import uk.ac.ebi.eva.submission.entity.SubmissionTrackingDetails;
+import uk.ac.ebi.eva.submission.entity.SubmittedAnalysis;
+import uk.ac.ebi.eva.submission.entity.SubmittedSample;
+import uk.ac.ebi.eva.submission.entity.SubmittedVcf;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStatus;
 import uk.ac.ebi.eva.submission.model.SubmissionProcessingStep;
 import uk.ac.ebi.eva.submission.model.SubmissionStatus;
@@ -48,6 +51,9 @@ import uk.ac.ebi.eva.submission.repository.SubmissionEloadRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionProcessingRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionRepository;
 import uk.ac.ebi.eva.submission.repository.SubmissionTrackingDetailsRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedAnalysisRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedSampleRepository;
+import uk.ac.ebi.eva.submission.repository.SubmittedVcfRepository;
 import uk.ac.ebi.eva.submission.service.GlobusDirectoryProvisioner;
 import uk.ac.ebi.eva.submission.service.GlobusTokenRefreshService;
 import uk.ac.ebi.eva.submission.service.LoginMethod;
@@ -87,6 +93,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -131,6 +138,15 @@ public class SubmissionWSIntegrationTest {
     @Autowired
     private SubmissionProcessingRepository submissionProcessingRepository;
 
+    @Autowired
+    private SubmittedAnalysisRepository submittedAnalysisRepository;
+
+    @Autowired
+    private SubmittedSampleRepository submittedSampleRepository;
+
+    @Autowired
+    private SubmittedVcfRepository submittedVcfRepository;
+
     @MockBean
     private EnaDownloader enaDownloader;
 
@@ -173,7 +189,6 @@ public class SubmissionWSIntegrationTest {
         registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
         registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
         registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
 
         // MailHog Configuration
         registry.add("eva.email.server", mailhog::getHost);
@@ -1498,8 +1513,7 @@ public class SubmissionWSIntegrationTest {
         String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.UPLOADED);
         String submissionId3 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submissions/status/" + SubmissionStatus.UPLOADED)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1519,13 +1533,102 @@ public class SubmissionWSIntegrationTest {
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.ON_HOLD);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submission-processes/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].submissionId").value(containsInAnyOrder(submissionId1)));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatus() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.BROKERING,
+                SubmissionProcessingStatus.RUNNING);
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submissionId").value(submissionId1))
+                .andExpect(jsonPath("$.step").value(SubmissionProcessingStep.BROKERING.toString()))
+                .andExpect(jsonPath("$.status").value(SubmissionProcessingStatus.RUNNING.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusOnlyReturnsRequestedSubmission() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId1, SubmissionProcessingStep.VALIDATION,
+                SubmissionProcessingStatus.SUCCESS);
+        String submissionId2 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.INGESTION,
+                SubmissionProcessingStatus.ON_HOLD);
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId2)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submissionId").value(submissionId2))
+                .andExpect(jsonPath("$.step").value(SubmissionProcessingStep.INGESTION.toString()))
+                .andExpect(jsonPath("$.status").value(SubmissionProcessingStatus.ON_HOLD.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusReflectsLatestUpdate() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
+        HttpHeaders httpHeaders = adminHeaders();
+
+        mvc.perform(put("/v1/admin/submission-process/" + submissionId1 + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(httpHeaders)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.step").value(SubmissionProcessingStep.VALIDATION.toString()))
+                .andExpect(jsonPath("$.status").value(SubmissionProcessingStatus.SUCCESS.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusNoProcessingEntry() throws Exception {
+        String submissionId1 = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.OPEN);
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string("No processing state found for submission " + submissionId1));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusNoSubmissionEntry() throws Exception {
+        String submissionId1 = "test_submissioin_id";
+
+        mvc.perform(get("/v1/admin/submission-process/" + submissionId1)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Submission with id test_submissioin_id does not exist"));
+    }
+
+    @Test
+    @Transactional
+    public void testGetSubmissionProcessStepAndStatusSubmissionDoesNotExist() throws Exception {
+        String wrongSubmissionId = "test-wrong-submission-id";
+
+        mvc.perform(get("/v1/admin/submission-process/" + wrongSubmissionId)
+                        .headers(adminHeaders())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Submission with id " + wrongSubmissionId + " does not exist"));
     }
 
 
@@ -1539,8 +1642,7 @@ public class SubmissionWSIntegrationTest {
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION,
                 SubmissionProcessingStatus.ON_HOLD);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId1 + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1563,8 +1665,7 @@ public class SubmissionWSIntegrationTest {
     public void testMarkSubmissionProcessStepAndStatusCreateFirstEntry() throws Exception {
         String submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1587,8 +1688,7 @@ public class SubmissionWSIntegrationTest {
     public void testMarkSubmissionProcessStepAndStatusSubmissionDoesNotExist() throws Exception {
         String submissionId = "test-wrong-submission-id";
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1599,8 +1699,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatus_Cancelled() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.CANCELLED)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1614,8 +1713,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatus_Completed() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.INGESTION + "/" + SubmissionProcessingStatus.SUCCESS)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1630,8 +1728,7 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testMarkSubmissionProcessStepAndStatus_UnsupportedCombination() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.ON_HOLD)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1661,8 +1758,7 @@ public class SubmissionWSIntegrationTest {
 
         createNewSubmissionDetailEntry(submissionId1, projectTitle, projectDescription, metadataRootNode);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submission/" + submissionId1)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1678,8 +1774,7 @@ public class SubmissionWSIntegrationTest {
         Integer eload = 123;
         String source = "email";
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         MvcResult result = mvc.perform(get("/v1/admin/submission/" + eload + "/submissionId?source=" + source)
                         .headers(httpHeaders)
@@ -1718,8 +1813,7 @@ public class SubmissionWSIntegrationTest {
         rootNode.put("submissionId", submissionId);
         rootNode.put("source", source);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         mvc.perform(put("/v1/admin/submission/eload/submissionId")
                         .headers(httpHeaders)
@@ -1744,8 +1838,7 @@ public class SubmissionWSIntegrationTest {
         rootNode.put("eload", eload);
         rootNode.put("submissionId", submissionId);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         mvc.perform(put("/v1/admin/submission/eload/submissionId")
                         .headers(httpHeaders)
@@ -1770,8 +1863,7 @@ public class SubmissionWSIntegrationTest {
         rootNode.put("submissionId", submissionId_1);
         rootNode.put("source", source);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
 
         SubmissionEload submissionEload = new SubmissionEload(submissionId_1, eload_2, source);
         submissionEloadRepository.save(submissionEload);
@@ -1801,8 +1893,7 @@ public class SubmissionWSIntegrationTest {
     @Transactional
     public void testSubmissionProcessingHistory() throws Exception {
         String submissionId = createNewSubmissionEntry(webinUserAccount, SubmissionStatus.PROCESSING);
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(put("/v1/admin/submission-process/" + submissionId + "/" + SubmissionProcessingStep.VALIDATION + "/" + SubmissionProcessingStatus.READY_FOR_PROCESSING)
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -2021,8 +2112,7 @@ public class SubmissionWSIntegrationTest {
         createNewSubmissionProcessingEntry(submissionId2, SubmissionProcessingStep.VALIDATION, SubmissionProcessingStatus.SUCCESS);
         createNewSubmissionDetailEntry(submissionId2, "Project 2", "Description 2", mapper.createObjectNode());
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submissions")
                         .headers(httpHeaders)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -2045,8 +2135,7 @@ public class SubmissionWSIntegrationTest {
         submissionAccountRepository.save(otherAccount);
         String otherSubmissionId = createNewSubmissionEntry(otherAccount, SubmissionStatus.OPEN);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        HttpHeaders httpHeaders = adminHeaders();
         mvc.perform(get("/v1/admin/submissions")
                         .param("submissionAccount", webinUserAccount.getId())
                         .headers(httpHeaders)
@@ -2059,23 +2148,20 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetTrackingDetails() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("releaseDate", "2027-01-01");
         rootNode.put("projectAccession", "PRJEB123");
-        ArrayNode arrayNode = mapper.createArrayNode();
-        arrayNode.add("ERZ456");
-        rootNode.set("analysisAccessions", arrayNode);
+        ObjectNode analysisNode = mapper.createObjectNode();
+        analysisNode.put("analysisAlias", "analysis-1");
+        analysisNode.put("analysisAccession", "ERZ456");
+        ArrayNode analysesNode = mapper.createArrayNode();
+        analysesNode.add(analysisNode);
+        rootNode.set("analyses", analysesNode);
         rootNode.put("rtLink", "https://rt.com/1234");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isOk());
 
         SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
@@ -2084,9 +2170,9 @@ public class SubmissionWSIntegrationTest {
         assertThat(submissionDetails.getReleaseDate()).isEqualTo(LocalDate.of(2027, 1, 1));
         assertThat(submissionDetails.getProjectAccession()).isNotNull();
         assertThat(submissionDetails.getProjectAccession()).isEqualTo("PRJEB123");
-        assertThat(submissionDetails.getAnalysisAccessions()).isNotNull();
-        assertThat(submissionDetails.getAnalysisAccessions().size()).isEqualTo(1);
-        assertThat(submissionDetails.getAnalysisAccessions().get(0)).isEqualTo("ERZ456");
+        assertThat(submissionDetails.getAnalyses()).isNotNull();
+        assertThat(submissionDetails.getAnalyses()).hasSize(1);
+        assertThat(submissionDetails.getAnalyses().get(0).getAnalysisAccession()).isEqualTo("ERZ456");
         assertThat(submissionDetails.getRtLink()).isNotNull();
         assertThat(submissionDetails.getRtLink()).isEqualTo("https://rt.com/1234");
     }
@@ -2094,19 +2180,13 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetTrackingDetails_malformedDate() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("releaseDate", "1-Jan-2026");
         rootNode.put("projectAccession", "PRJEB123");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isBadRequest());
 
         SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
@@ -2116,19 +2196,13 @@ public class SubmissionWSIntegrationTest {
     @Test
     @Transactional
     public void testSetTrackingDetails_malformedUri() throws Exception {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("rtLink", "bad link");
         rootNode.put("projectAccession", "PRJEB123");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isBadRequest());
 
         SubmissionTrackingDetails submissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
@@ -2144,28 +2218,323 @@ public class SubmissionWSIntegrationTest {
         submissionDetails.setReleaseDate(LocalDate.of(2027, 1, 1));
         submissionTrackingDetailsRepository.save(submissionDetails);
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
-
         // Request body only updates release date
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("releaseDate", "2027-12-12");
 
-        mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
-                        .headers(httpHeaders)
-                        .content(mapper.writeValueAsString(rootNode))
-                        .contentType(MediaType.APPLICATION_JSON))
+        performTrackingUpdate(mapper, rootNode)
                 .andExpect(status().isOk());
 
-        // Assert results: release date updated, project accession unchanged and analysis accessions still unset
+        // Assert results: release date updated, project accession unchanged and analyses still unset
         SubmissionTrackingDetails updatedSubmissionDetails = submissionTrackingDetailsRepository.findBySubmissionId(submissionId);
         assertThat(updatedSubmissionDetails).isNotNull();
         assertThat(updatedSubmissionDetails.getReleaseDate()).isNotNull();
         assertThat(updatedSubmissionDetails.getReleaseDate()).isEqualTo(LocalDate.of(2027, 12, 12));
         assertThat(updatedSubmissionDetails.getProjectAccession()).isNotNull();
         assertThat(updatedSubmissionDetails.getProjectAccession()).isEqualTo("PRJEB123");
-        assertThat(updatedSubmissionDetails.getAnalysisAccessions()).isNull();
+        assertThat(updatedSubmissionDetails.getAnalyses()).isNull();
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_createsNestedEntities() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        ArrayNode analyses = rootNode.putArray("analyses");
+        ObjectNode analysisNode = analyses.addObject();
+        analysisNode.put("analysisAlias", "analysis-1");
+        analysisNode.put("analysisAccession", "ERZ456");
+        ArrayNode samples = analysisNode.putArray("samples");
+        ObjectNode sample = samples.addObject();
+        sample.put("analysisAlias", "analysis-1");
+        sample.put("sampleName", "sample-1");
+        sample.put("sampleAccession", "SAMEA123");
+        ArrayNode vcfs = analysisNode.putArray("vcfs");
+        ObjectNode vcf = vcfs.addObject();
+        vcf.put("analysisAlias", "analysis-1");
+        vcf.put("submittedFile", "input.vcf.gz");
+        vcf.put("brokeredFile", "brokered.vcf.gz");
+
+        performTrackingUpdate(mapper, rootNode).andExpect(status().isOk());
+
+        SubmittedAnalysis analysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        SubmittedSample savedSample = submittedSampleRepository.findById(
+                new SubmittedSample.SubmittedSampleId(submissionId, "sample-1")).orElseThrow();
+        SubmittedVcf savedVcf = submittedVcfRepository.findById(
+                new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz")).orElseThrow();
+
+        assertThat(analysis.getAnalysisAccession()).isEqualTo("ERZ456");
+        assertThat(savedSample.getSampleAccession()).isEqualTo("SAMEA123");
+        assertThat(savedVcf.getBrokeredFile()).isEqualTo("brokered.vcf.gz");
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_linksSampleToMultipleAnalyses() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode root = mapper.createObjectNode();
+        ArrayNode analyses = root.putArray("analyses");
+        String sharedSampleName = "shared-sample";
+        analyses.addObject().put("analysisAlias", "analysis-1")
+                .putArray("samples").addObject()
+                .put("sampleName", sharedSampleName).put("sampleAccession", "SAMEA123");
+        analyses.addObject().put("analysisAlias", "analysis-2")
+                .putArray("samples").addObject()
+                .put("sampleName", sharedSampleName);
+
+        performTrackingUpdate(mapper, root).andExpect(status().isOk());
+        entityManager.flush();
+        entityManager.clear();
+
+        SubmittedAnalysis firstAnalysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        SubmittedAnalysis secondAnalysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-2")).orElseThrow();
+        SubmittedSample sharedSample = submittedSampleRepository.findById(
+                new SubmittedSample.SubmittedSampleId(submissionId, sharedSampleName)).orElseThrow();
+
+        assertThat(firstAnalysis.getSamples()).map(SubmittedSample::getSampleName).containsExactly(sharedSampleName);
+        assertThat(secondAnalysis.getSamples()).map(SubmittedSample::getSampleName).containsExactly(sharedSampleName);
+        assertThat(sharedSample.getSampleAccession()).isEqualTo("SAMEA123");
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_recursivelyPartiallyUpdatesNestedEntities() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode initial = mapper.createObjectNode();
+        ArrayNode analyses = initial.putArray("analyses");
+        ObjectNode analysis = analyses.addObject();
+        analysis.put("analysisAlias", "analysis-1");
+        analysis.put("analysisAccession", "ERZ456");
+        analysis.put("aggregationType", "NONE");
+        ObjectNode sample = analysis.putArray("samples").addObject();
+        sample.put("sampleName", "sample-1");
+        sample.put("sampleAccession", "SAMEA123");
+        ObjectNode vcf = analysis.putArray("vcfs").addObject();
+        vcf.put("submittedFile", "input.vcf.gz");
+        vcf.put("brokeredFile", "brokered.vcf.gz");
+        performTrackingUpdate(mapper, initial).andExpect(status().isOk());
+
+        ObjectNode update = mapper.createObjectNode();
+        ObjectNode updatedAnalysis = update.putArray("analyses").addObject();
+        updatedAnalysis.put("analysisAlias", "analysis-1");
+        updatedAnalysis.put("analysisAccession", "ERZ999");
+        updatedAnalysis.putArray("samples").addObject().put("sampleName", "sample-1")
+                .put("sampleAccession", "SAMEA999");
+        updatedAnalysis.putArray("vcfs").addObject().put("submittedFile", "input.vcf.gz")
+                .put("csiFile", "input.vcf.gz.csi");
+        performTrackingUpdate(mapper, update).andExpect(status().isOk());
+
+        SubmittedAnalysis savedAnalysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        SubmittedSample savedSample = submittedSampleRepository.findById(
+                new SubmittedSample.SubmittedSampleId(submissionId, "sample-1")).orElseThrow();
+        SubmittedVcf savedVcf = submittedVcfRepository.findById(
+                new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz")).orElseThrow();
+
+        assertThat(savedAnalysis.getAnalysisAccession()).isEqualTo("ERZ999");
+        assertThat(savedAnalysis.getAggregationType()).isEqualTo("NONE");
+        assertThat(savedSample.getSampleAccession()).isEqualTo("SAMEA999");
+        assertThat(savedVcf.getBrokeredFile()).isEqualTo("brokered.vcf.gz");
+        assertThat(savedVcf.getCsiFile()).isEqualTo("input.vcf.gz.csi");
+    }
+
+    @Test
+    public void testGetTrackingDetails() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode trackingDetails = mapper.createObjectNode()
+                .put("projectTitle", "Test project");
+        performTrackingUpdate(mapper, trackingDetails).andExpect(status().isOk());
+
+        mvc.perform(get("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(adminHeaders()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projectTitle").value("Test project"));
+    }
+
+    @Test
+    @Transactional
+    public void testGetTrackingDetails_returnsEverythingSetByPut() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode()
+                .put("releaseDate", "2030-01-31")
+                .put("projectAccession", "PRJEB12345")
+                .put("projectTitle", "Test project")
+                .put("projectTaxonomies", "9606,10090")
+                .put("metadataJsonFile", "metadata.json")
+                .put("rtLink", "https://rt.example.org/Ticket/Display.html?id=42");
+        ArrayNode analyses = rootNode.putArray("analyses");
+        ObjectNode analysis1 = analyses.addObject()
+                .put("analysisAlias", "analysis-1")
+                .put("analysisAccession", "ERZ111")
+                .put("aggregationType", "NONE")
+                .put("assemblyAccession", "GCA_000001405.29");
+        analysis1.putArray("samples").addObject()
+                .put("analysisAlias", "analysis-1")
+                .put("sampleName", "shared-sample")
+                .put("sampleAccession", "SAMEA111");
+        analysis1.putArray("vcfs").addObject()
+                .put("analysisAlias", "analysis-1")
+                .put("submittedFile", "input1.vcf.gz")
+                .put("brokeredFile", "brokered1.vcf.gz")
+                .put("csiFile", "brokered1.vcf.gz.csi")
+                .put("brokeredFileMd5", "md5-vcf-1")
+                .put("csiFileMd5", "md5-csi-1");
+        ObjectNode analysis2 = analyses.addObject()
+                .put("analysisAlias", "analysis-2")
+                .put("analysisAccession", "ERZ222")
+                .put("aggregationType", "BASIC")
+                .put("assemblyAccession", "GCA_000001635.9");
+        // the same sample is linked to a second analysis
+        analysis2.putArray("samples").addObject()
+                .put("analysisAlias", "analysis-2")
+                .put("sampleName", "shared-sample");
+        analysis2.putArray("vcfs").addObject()
+                .put("analysisAlias", "analysis-2")
+                .put("submittedFile", "input2.vcf.gz")
+                .put("brokeredFile", "brokered2.vcf.gz");
+
+        performTrackingUpdate(mapper, rootNode).andExpect(status().isOk());
+
+        // Write everything to the database and drop the persistence context, so that the GET below reloads the
+        // tracking details (including the nested collections) from the database rather than from entities that are
+        // still held in memory by this test's transaction
+        entityManager.flush();
+        entityManager.clear();
+
+        mvc.perform(get("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(adminHeaders()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.releaseDate").value("2030-01-31"))
+                .andExpect(jsonPath("$.projectAccession").value("PRJEB12345"))
+                .andExpect(jsonPath("$.projectTitle").value("Test project"))
+                .andExpect(jsonPath("$.projectTaxonomies").value("9606,10090"))
+                .andExpect(jsonPath("$.metadataJsonFile").value("metadata.json"))
+                .andExpect(jsonPath("$.rtLink").value("https://rt.example.org/Ticket/Display.html?id=42"))
+                .andExpect(jsonPath("$.analyses.length()").value(2))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].analysisAccession")
+                        .value(hasItem("ERZ111")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].aggregationType")
+                        .value(hasItem("NONE")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].assemblyAccession")
+                        .value(hasItem("GCA_000001405.29")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].samples[0].sampleName")
+                        .value(hasItem("shared-sample")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].samples[0].sampleAccession")
+                        .value(hasItem("SAMEA111")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].submittedFile")
+                        .value(hasItem("input1.vcf.gz")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].brokeredFile")
+                        .value(hasItem("brokered1.vcf.gz")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].csiFile")
+                        .value(hasItem("brokered1.vcf.gz.csi")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].brokeredFileMd5")
+                        .value(hasItem("md5-vcf-1")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-1')].vcfs[0].csiFileMd5")
+                        .value(hasItem("md5-csi-1")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].analysisAccession")
+                        .value(hasItem("ERZ222")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].aggregationType")
+                        .value(hasItem("BASIC")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].assemblyAccession")
+                        .value(hasItem("GCA_000001635.9")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].samples[0].sampleName")
+                        .value(hasItem("shared-sample")))
+                .andExpect(jsonPath("$.analyses[?(@.analysisAlias=='analysis-2')].vcfs[0].submittedFile")
+                        .value(hasItem("input2.vcf.gz")));
+    }
+
+    @Test
+    @Transactional
+    public void testClearTrackingDetails() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode trackingDetails = mapper.createObjectNode()
+                .put("projectTitle", "Test project");
+        ObjectNode analysis = trackingDetails.putArray("analyses").addObject();
+        analysis.put("analysisAlias", "analysis-1");
+        analysis.put("analysisAccession", "ERZ456");
+        analysis.putArray("samples").addObject()
+                .put("sampleName", "sample-1")
+                .put("sampleAccession", "SAMEA123");
+        analysis.putArray("vcfs").addObject()
+                .put("submittedFile", "input.vcf.gz")
+                .put("brokeredFile", "brokered.vcf.gz");
+        performTrackingUpdate(mapper, trackingDetails).andExpect(status().isOk());
+
+        mvc.perform(delete("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                        .headers(adminHeaders()))
+                .andExpect(status().isNoContent());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        SubmittedAnalysis.SubmittedAnalysisId analysisId =
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1");
+        SubmittedSample.SubmittedSampleId sampleId =
+                new SubmittedSample.SubmittedSampleId(submissionId, "sample-1");
+        SubmittedVcf.SubmittedVcfId vcfId =
+                new SubmittedVcf.SubmittedVcfId(submissionId, "analysis-1", "input.vcf.gz");
+
+        // Clearing submission details also deletes all nested objects, but not the overall Submission
+        assertThat(submissionTrackingDetailsRepository.findBySubmissionId(submissionId)).isNull();
+        assertThat(submittedAnalysisRepository.findById(analysisId)).isEmpty();
+        assertThat(submittedSampleRepository.findById(sampleId)).isEmpty();
+        assertThat(submittedVcfRepository.findById(vcfId)).isEmpty();
+        assertThat(submissionRepository.findBySubmissionId(submissionId)).isNotNull();
+    }
+
+    @Test
+    @Transactional
+    public void testSetTrackingDetails_emptyNestedListLeavesChildrenUnchanged() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode initial = mapper.createObjectNode();
+        initial.putArray("analyses").addObject().put("analysisAlias", "analysis-1")
+                .put("analysisAccession", "ERZ456");
+        performTrackingUpdate(mapper, initial).andExpect(status().isOk());
+
+        ObjectNode update = mapper.createObjectNode();
+        update.put("projectTitle", "Updated title");
+        update.putArray("analyses");
+        performTrackingUpdate(mapper, update).andExpect(status().isOk());
+
+        SubmittedAnalysis analysis = submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1")).orElseThrow();
+        assertThat(analysis.getAnalysisAccession()).isEqualTo("ERZ456");
+    }
+
+    @Test
+    public void testSetTrackingDetails_rejectsNestedImmutableKeyMismatchAndRollsBack() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        ObjectNode analysis = rootNode.putArray("analyses").addObject();
+        analysis.put("analysisAlias", "analysis-1");
+        analysis.putArray("samples").addObject()
+                .put("analysisAlias", "different-analysis")
+                .put("sampleName", "sample-1")
+                .put("sampleAccession", "SAMEA123");
+
+        performTrackingUpdate(mapper, rootNode).andExpect(status().isBadRequest());
+
+        assertThat(submittedAnalysisRepository.findById(
+                new SubmittedAnalysis.SubmittedAnalysisId(submissionId, "analysis-1"))).isEmpty();
+        assertThat(submissionTrackingDetailsRepository.findBySubmissionId(submissionId)).isNull();
+    }
+
+    private ResultActions performTrackingUpdate(ObjectMapper mapper, ObjectNode body) throws Exception {
+        HttpHeaders headers = adminHeaders();
+        return mvc.perform(put("/v1/admin/submission/" + submissionId + "/trackingDetails")
+                .headers(headers)
+                .content(mapper.writeValueAsString(body))
+                .contentType(MediaType.APPLICATION_JSON));
+    }
+
+    private HttpHeaders adminHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth(TEST_ADMIN_USERNAME, TEST_ADMIN_PASSWORD);
+        return headers;
     }
 
     @Test
